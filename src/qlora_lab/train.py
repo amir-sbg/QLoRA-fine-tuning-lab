@@ -7,7 +7,11 @@ from pathlib import Path
 import torch
 
 from .config import QLoRAConfig, prepare_output_directories, save_json
-from .data import prepare_datasets
+from .data import (
+    SupervisedDataCollator,
+    prepare_datasets,
+    tokenized_dataset_profile,
+)
 from .model import load_qlora_model, load_tokenizer, trainable_parameter_summary
 
 
@@ -43,15 +47,20 @@ def _training_arguments(config: QLoRAConfig, has_eval: bool):
 
 
 def run_training(config: QLoRAConfig) -> dict:
-    from transformers import DataCollatorForLanguageModeling, Trainer, set_seed
+    from transformers import Trainer, set_seed
 
     prepare_output_directories(config)
     set_seed(config.seed)
     tokenizer = load_tokenizer(config)
     datasets = prepare_datasets(config, tokenizer)
     model = load_qlora_model(config)
+    data_profile = {
+        "train": tokenized_dataset_profile(datasets["train"]),
+        "eval": tokenized_dataset_profile(datasets["eval"]),
+    }
+    save_json(data_profile, config.report_dir / "data_profile.json")
 
-    collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    collator = SupervisedDataCollator(tokenizer=tokenizer)
     trainer = Trainer(
         model=model,
         args=_training_arguments(config, has_eval=len(datasets["eval"]) > 0),
@@ -60,12 +69,19 @@ def run_training(config: QLoRAConfig) -> dict:
         data_collator=collator,
         tokenizer=tokenizer,
     )
-    result = trainer.train()
+    result = trainer.train(
+        resume_from_checkpoint=(
+            str(config.resume_from_checkpoint)
+            if config.resume_from_checkpoint is not None
+            else None
+        )
+    )
     trainer.save_model(str(config.output_dir))
     tokenizer.save_pretrained(config.output_dir)
 
     summary = {
         "config": config.to_dict(),
+        "data_profile": data_profile,
         "train_metrics": result.metrics,
         "parameter_summary": trainable_parameter_summary(model),
     }
@@ -81,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dataset-split", default=QLoRAConfig.dataset_split)
     parser.add_argument("--output-dir", type=Path, default=QLoRAConfig.output_dir)
     parser.add_argument("--report-dir", type=Path, default=QLoRAConfig.report_dir)
+    parser.add_argument("--resume-from-checkpoint", type=Path)
     parser.add_argument("--max-seq-length", type=int, default=QLoRAConfig.max_seq_length)
     parser.add_argument("--max-train-samples", type=int, default=QLoRAConfig.max_train_samples)
     parser.add_argument("--max-eval-samples", type=int, default=QLoRAConfig.max_eval_samples)

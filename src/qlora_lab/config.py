@@ -14,6 +14,7 @@ class QLoRAConfig:
     dataset_split: str = "train"
     output_dir: Path = Path("artifacts/qlora-adapter")
     report_dir: Path = Path("reports")
+    resume_from_checkpoint: Path | None = None
 
     max_seq_length: int = 512
     max_train_samples: int | None = 2000
@@ -90,6 +91,11 @@ class QLoRAConfig:
         payload = asdict(self)
         payload["output_dir"] = str(self.output_dir)
         payload["report_dir"] = str(self.report_dir)
+        payload["resume_from_checkpoint"] = (
+            str(self.resume_from_checkpoint)
+            if self.resume_from_checkpoint is not None
+            else None
+        )
         payload["target_modules"] = list(self.target_modules)
         payload["lora_scale"] = self.lora_scale
         return payload
