@@ -22,7 +22,8 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 4. Load the base model in 4-bit NF4 with optional double quantization.
 5. Attach LoRA adapters to attention and MLP projection layers.
 6. Train only the adapter weights and save the adapter checkpoint.
-7. Run a rank sweep report to compare adapter size, scale, and memory.
+7. Save a token profile so sequence length and supervised-token ratio are easy to inspect.
+8. Run a rank sweep report to compare adapter size, scale, and memory.
 
 ## Setup
 
@@ -52,7 +53,14 @@ python -m qlora_lab.train \
   --gradient-accumulation-steps 8
 ```
 
-Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`.
+Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`.
+
+Interrupted runs can be resumed from a Trainer checkpoint:
+
+```bash
+python -m qlora_lab.train \
+  --resume-from-checkpoint artifacts/qlora-adapter/checkpoint-100
+```
 
 ## Rank Experiment
 
@@ -74,6 +82,14 @@ This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estim
 python -m qlora_lab.evaluate \
   --adapter-dir artifacts/qlora-adapter \
   --prompt "Explain why gradient accumulation is useful for QLoRA."
+```
+
+For a small repeatable prompt set, put one prompt per line and pass `--prompt-file`:
+
+```bash
+python -m qlora_lab.evaluate \
+  --adapter-dir artifacts/qlora-adapter \
+  --prompt-file prompts/eval_prompts.txt
 ```
 
 The evaluator loads the saved adapter and writes generated samples to `reports/generations.json`.
