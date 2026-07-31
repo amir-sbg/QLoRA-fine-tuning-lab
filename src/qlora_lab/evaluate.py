@@ -9,6 +9,24 @@ from .config import QLoRAConfig, save_json
 from .model import load_tokenizer
 
 
+def load_prompts(prompt: str | None, prompt_file: Path | None) -> list[str]:
+    prompts: list[str] = []
+    if prompt:
+        prompts.append(prompt.strip())
+    if prompt_file is not None:
+        if not prompt_file.exists():
+            raise FileNotFoundError(f"prompt file not found: {prompt_file}")
+        prompts.extend(
+            line.strip()
+            for line in prompt_file.read_text().splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        )
+    prompts = [value for value in prompts if value]
+    if not prompts:
+        raise ValueError("provide --prompt, --prompt-file, or both")
+    return prompts
+
+
 def generate_from_adapter(
     config: QLoRAConfig,
     adapter_dir: Path,
@@ -50,7 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-name", default=QLoRAConfig.model_name)
     parser.add_argument("--adapter-dir", type=Path, default=QLoRAConfig.output_dir)
     parser.add_argument("--report-dir", type=Path, default=QLoRAConfig.report_dir)
-    parser.add_argument("--prompt", required=True)
+    parser.add_argument("--prompt")
+    parser.add_argument("--prompt-file", type=Path)
     parser.add_argument("--max-new-tokens", type=int, default=120)
     return parser
 
@@ -58,14 +77,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     config = QLoRAConfig(model_name=args.model_name, report_dir=args.report_dir)
-    result = generate_from_adapter(
-        config=config,
-        adapter_dir=args.adapter_dir,
-        prompt=args.prompt,
-        max_new_tokens=args.max_new_tokens,
-    )
-    save_json(result, config.report_dir / "generations.json")
-    print(result["generation"])
+    results = [
+        generate_from_adapter(
+            config=config,
+            adapter_dir=args.adapter_dir,
+            prompt=prompt,
+            max_new_tokens=args.max_new_tokens,
+        )
+        for prompt in load_prompts(args.prompt, args.prompt_file)
+    ]
+    save_json({"generations": results}, config.report_dir / "generations.json")
+    for index, result in enumerate(results, start=1):
+        print(f"[{index}] {result['generation']}")
 
 
 if __name__ == "__main__":
