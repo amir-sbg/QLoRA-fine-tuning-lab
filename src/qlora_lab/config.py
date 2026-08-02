@@ -39,6 +39,7 @@ class QLoRAConfig:
     gradient_accumulation_steps: int = 8
     learning_rate: float = 2e-4
     weight_decay: float = 0.0
+    max_grad_norm: float = 0.3
     warmup_ratio: float = 0.03
     logging_steps: int = 10
     save_steps: int = 100
@@ -74,6 +75,8 @@ class QLoRAConfig:
             raise ValueError("batch settings must be positive")
         if self.learning_rate <= 0 or self.weight_decay < 0:
             raise ValueError("optimizer settings are invalid")
+        if self.max_grad_norm <= 0:
+            raise ValueError("max_grad_norm must be positive")
         if not 0 <= self.warmup_ratio < 1:
             raise ValueError("warmup_ratio must be in [0, 1)")
         if self.logging_steps < 1 or self.save_steps < 1 or self.eval_steps < 1:

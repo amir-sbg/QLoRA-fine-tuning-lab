@@ -23,7 +23,8 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 5. Attach LoRA adapters to attention and MLP projection layers.
 6. Train only the adapter weights and save the adapter checkpoint.
 7. Save a token profile so sequence length and supervised-token ratio are easy to inspect.
-8. Run a rank sweep report to compare adapter size, scale, and memory.
+8. Run a preflight report before using GPU time.
+9. Run a rank sweep report to compare adapter size, scale, and memory.
 
 ## Setup
 
@@ -61,6 +62,18 @@ Interrupted runs can be resumed from a Trainer checkpoint:
 python -m qlora_lab.train \
   --resume-from-checkpoint artifacts/qlora-adapter/checkpoint-100
 ```
+
+## Preflight Check
+
+```bash
+python -m qlora_lab.preflight \
+  --train-examples 1000 \
+  --base-parameters 500000000 \
+  --batch-size 2 \
+  --gradient-accumulation-steps 8
+```
+
+The report includes CUDA availability, effective batch size, estimated update steps, 4-bit base-weight memory, LoRA scale, and basic warnings that are useful before starting a run.
 
 ## Rank Experiment
 
@@ -102,6 +115,7 @@ src/qlora_lab/
 ├── data.py          # instruction formatting and label masking
 ├── model.py         # 4-bit base model and PEFT adapter setup
 ├── quantization.py  # NF4 reference implementation
+├── preflight.py     # runtime and training sanity checks
 ├── experiments.py   # rank and memory comparison report
 ├── train.py         # command-line training pipeline
 └── evaluate.py      # adapter generation script

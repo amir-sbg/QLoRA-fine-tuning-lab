@@ -26,6 +26,7 @@ def _training_arguments(config: QLoRAConfig, has_eval: bool):
         "gradient_accumulation_steps": config.gradient_accumulation_steps,
         "learning_rate": config.learning_rate,
         "weight_decay": config.weight_decay,
+        "max_grad_norm": config.max_grad_norm,
         "warmup_ratio": config.warmup_ratio,
         "logging_steps": config.logging_steps,
         "save_steps": config.save_steps,
@@ -115,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--learning-rate", type=float, default=QLoRAConfig.learning_rate)
     parser.add_argument("--weight-decay", type=float, default=QLoRAConfig.weight_decay)
+    parser.add_argument("--max-grad-norm", type=float, default=QLoRAConfig.max_grad_norm)
     parser.add_argument("--warmup-ratio", type=float, default=QLoRAConfig.warmup_ratio)
     parser.add_argument("--logging-steps", type=int, default=QLoRAConfig.logging_steps)
     parser.add_argument("--save-steps", type=int, default=QLoRAConfig.save_steps)

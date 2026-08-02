@@ -23,3 +23,8 @@ def test_config_reports_lora_scale() -> None:
 def test_config_rejects_bad_rank() -> None:
     with pytest.raises(ValueError, match="lora_r"):
         QLoRAConfig(lora_r=0)
+
+
+def test_config_rejects_invalid_gradient_clip() -> None:
+    with pytest.raises(ValueError, match="max_grad_norm"):
+        QLoRAConfig(max_grad_norm=0)
