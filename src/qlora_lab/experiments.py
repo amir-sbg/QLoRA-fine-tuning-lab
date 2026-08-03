@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -86,6 +87,31 @@ def rank_sweep_report(
     }
 
 
+def rank_sweep_csv_rows(report: dict) -> list[dict]:
+    assumptions = report["assumptions"]
+    context = {
+        "hidden_size": assumptions["hidden_size"],
+        "intermediate_size": assumptions["intermediate_size"],
+        "layers": assumptions["layers"],
+        "base_parameters": assumptions["base_parameters"],
+        "base_4bit_memory_mb": assumptions["base_4bit_memory_mb"],
+    }
+    return [{**context, **row} for row in report["rank_sweep"]]
+
+
+def save_rank_sweep_csv(report: dict, path: Path) -> None:
+    rows = rank_sweep_csv_rows(report)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        path.write_text("")
+        return
+
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Estimate QLoRA rank tradeoffs.")
     parser.add_argument("--ranks", nargs="+", type=int, default=[4, 8, 16, 32])
@@ -94,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--layers", type=int, default=24)
     parser.add_argument("--base-parameters", type=int, default=1_500_000_000)
     parser.add_argument("--output", type=Path, default=Path("reports/rank_sweep.json"))
+    parser.add_argument("--csv-output", type=Path)
     return parser
 
 
@@ -108,6 +135,9 @@ def main() -> None:
     )
     save_json(report, args.output)
     print(f"wrote {args.output}")
+    if args.csv_output is not None:
+        save_rank_sweep_csv(report, args.csv_output)
+        print(f"wrote {args.csv_output}")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from qlora_lab.experiments import (
     decoder_block_shapes,
     lora_parameter_count,
     rank_sweep_report,
+    save_rank_sweep_csv,
 )
 
 
@@ -26,3 +27,20 @@ def test_rank_sweep_grows_linearly_with_rank() -> None:
 
     assert rows[1]["adapter_parameters"] == rows[0]["adapter_parameters"] * 2
     assert rows[0]["scale"] == 2.0
+
+
+def test_rank_sweep_can_be_saved_as_csv(tmp_path) -> None:
+    report = rank_sweep_report(
+        ranks=[4],
+        hidden_size=16,
+        intermediate_size=32,
+        layers=2,
+        base_parameters=10_000,
+    )
+    output = tmp_path / "rank_sweep.csv"
+
+    save_rank_sweep_csv(report, output)
+
+    rows = output.read_text().splitlines()
+    assert rows[0].startswith("hidden_size,intermediate_size,layers")
+    assert ",4,8,2.0," in rows[1]
