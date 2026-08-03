@@ -20,7 +20,7 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 2. Format each row into an instruction, optional context, and response block.
 3. Tokenize the full sequence while masking the prompt tokens from the loss.
 4. Load the base model in 4-bit NF4 with optional double quantization.
-5. Attach LoRA adapters to attention and MLP projection layers.
+5. Check the requested adapter target modules against the loaded model, then attach LoRA adapters to the matched projection layers.
 6. Train only the adapter weights and save the adapter checkpoint.
 7. Save a token profile so sequence length and supervised-token ratio are easy to inspect.
 8. Run a preflight report before using GPU time.
@@ -115,6 +115,7 @@ src/qlora_lab/
 ├── data.py          # instruction formatting and label masking
 ├── model.py         # 4-bit base model and PEFT adapter setup
 ├── quantization.py  # NF4 reference implementation
+├── targets.py       # adapter target-module inspection
 ├── preflight.py     # runtime and training sanity checks
 ├── experiments.py   # rank and memory comparison report
 ├── train.py         # command-line training pipeline

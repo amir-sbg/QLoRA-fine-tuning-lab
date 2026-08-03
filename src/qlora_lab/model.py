@@ -3,6 +3,7 @@ from __future__ import annotations
 import torch
 
 from .config import QLoRAConfig
+from .targets import validate_target_modules
 
 
 def resolve_torch_dtype(name: str) -> torch.dtype:
@@ -52,6 +53,7 @@ def load_qlora_model(config: QLoRAConfig):
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
     model = prepare_model_for_kbit_training(model)
+    validate_target_modules(model, config.target_modules)
 
     adapter_config = LoraConfig(
         r=config.lora_r,
