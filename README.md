@@ -106,7 +106,7 @@ python -m qlora_lab.evaluate \
   --prompt-file prompts/eval_prompts.txt
 ```
 
-The evaluator loads the saved adapter and writes generated samples to `reports/generations.json`.
+The evaluator loads the saved adapter and writes generated samples to `reports/generations.json`. It uses deterministic generation by default; pass `--do-sample --temperature 0.8 --top-p 0.9` when sampling is useful for qualitative checks.
 
 ## Repository Layout
 

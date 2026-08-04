@@ -27,11 +27,37 @@ def load_prompts(prompt: str | None, prompt_file: Path | None) -> list[str]:
     return prompts
 
 
+def build_generation_kwargs(
+    max_new_tokens: int,
+    do_sample: bool = False,
+    temperature: float = 1.0,
+    top_p: float = 1.0,
+) -> dict:
+    if max_new_tokens < 1:
+        raise ValueError("max_new_tokens must be positive")
+    if temperature <= 0:
+        raise ValueError("temperature must be positive")
+    if not 0 < top_p <= 1:
+        raise ValueError("top_p must be in (0, 1]")
+
+    kwargs = {
+        "max_new_tokens": max_new_tokens,
+        "do_sample": do_sample,
+    }
+    if do_sample:
+        kwargs["temperature"] = temperature
+        kwargs["top_p"] = top_p
+    return kwargs
+
+
 def generate_from_adapter(
     config: QLoRAConfig,
     adapter_dir: Path,
     prompt: str,
     max_new_tokens: int = 120,
+    do_sample: bool = False,
+    temperature: float = 1.0,
+    top_p: float = 1.0,
 ) -> dict:
     from peft import PeftModel
     from transformers import AutoModelForCausalLM
@@ -50,8 +76,12 @@ def generate_from_adapter(
     with torch.inference_mode():
         output_ids = model.generate(
             **encoded,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
+            **build_generation_kwargs(
+                max_new_tokens=max_new_tokens,
+                do_sample=do_sample,
+                temperature=temperature,
+                top_p=top_p,
+            ),
             pad_token_id=tokenizer.eos_token_id,
         )
     text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
@@ -71,6 +101,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--prompt")
     parser.add_argument("--prompt-file", type=Path)
     parser.add_argument("--max-new-tokens", type=int, default=120)
+    parser.add_argument("--do-sample", action="store_true")
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--top-p", type=float, default=1.0)
     return parser
 
 
@@ -83,6 +116,9 @@ def main() -> None:
             adapter_dir=args.adapter_dir,
             prompt=prompt,
             max_new_tokens=args.max_new_tokens,
+            do_sample=args.do_sample,
+            temperature=args.temperature,
+            top_p=args.top_p,
         )
         for prompt in load_prompts(args.prompt, args.prompt_file)
     ]
