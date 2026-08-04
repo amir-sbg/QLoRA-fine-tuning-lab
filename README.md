@@ -90,6 +90,10 @@ python -m qlora_lab.experiments \
 
 This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated 4-bit backbone memory, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
 
+## Notebooks
+
+`notebooks/00_rank_and_preflight_study.ipynb` is a CPU-friendly planning notebook for rank, adapter-memory, and update-step tradeoffs before launching a GPU run.
+
 ## Evaluate an Adapter
 
 ```bash
