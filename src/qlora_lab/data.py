@@ -135,6 +135,22 @@ def tokenized_dataset_profile(dataset: Any) -> dict[str, float | int]:
     }
 
 
+def validate_tokenized_profile(
+    profile: dict[str, float | int],
+    split_name: str,
+    min_supervised_ratio: float = 0.01,
+) -> None:
+    if profile["examples"] < 1:
+        raise ValueError(f"{split_name} split has no tokenized examples")
+    if profile["avg_supervised_tokens"] <= 0:
+        raise ValueError(f"{split_name} split has no supervised response tokens")
+    if profile["supervised_token_ratio"] < min_supervised_ratio:
+        raise ValueError(
+            f"{split_name} split has very few supervised tokens; "
+            "check prompt masking and max_seq_length"
+        )
+
+
 def _limit_split(dataset: Any, max_samples: int | None) -> Any:
     if max_samples is None:
         return dataset

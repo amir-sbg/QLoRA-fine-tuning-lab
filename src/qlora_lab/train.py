@@ -11,6 +11,7 @@ from .data import (
     SupervisedDataCollator,
     prepare_datasets,
     tokenized_dataset_profile,
+    validate_tokenized_profile,
 )
 from .model import load_qlora_model, load_tokenizer, trainable_parameter_summary
 
@@ -59,6 +60,8 @@ def run_training(config: QLoRAConfig) -> dict:
         "train": tokenized_dataset_profile(datasets["train"]),
         "eval": tokenized_dataset_profile(datasets["eval"]),
     }
+    validate_tokenized_profile(data_profile["train"], "train")
+    validate_tokenized_profile(data_profile["eval"], "eval")
     save_json(data_profile, config.report_dir / "data_profile.json")
 
     collator = SupervisedDataCollator(tokenizer=tokenizer)

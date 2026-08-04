@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from qlora_lab.data import (
@@ -7,6 +8,7 @@ from qlora_lab.data import (
     has_training_signal,
     tokenize_example,
     tokenized_dataset_profile,
+    validate_tokenized_profile,
 )
 
 
@@ -104,3 +106,23 @@ def test_dataset_profile_reports_supervised_ratio() -> None:
     assert profile["examples"] == 2
     assert profile["max_input_tokens"] == 3
     assert profile["supervised_token_ratio"] == 0.6
+
+
+def test_profile_validation_rejects_empty_split() -> None:
+    profile = tokenized_dataset_profile([])
+
+    with pytest.raises(ValueError, match="no tokenized examples"):
+        validate_tokenized_profile(profile, "train")
+
+
+def test_profile_validation_rejects_low_supervised_ratio() -> None:
+    profile = {
+        "examples": 1,
+        "avg_input_tokens": 100.0,
+        "max_input_tokens": 100,
+        "avg_supervised_tokens": 1.0,
+        "supervised_token_ratio": 0.005,
+    }
+
+    with pytest.raises(ValueError, match="very few supervised tokens"):
+        validate_tokenized_profile(profile, "train")

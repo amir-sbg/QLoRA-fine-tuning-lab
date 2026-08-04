@@ -54,7 +54,7 @@ python -m qlora_lab.train \
   --gradient-accumulation-steps 8
 ```
 
-Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`.
+Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`. The training command also checks that truncation has not removed almost all supervised response tokens before starting the Trainer.
 
 Interrupted runs can be resumed from a Trainer checkpoint:
 
