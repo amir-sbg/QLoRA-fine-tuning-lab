@@ -93,6 +93,7 @@ This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estim
 ## Notebooks
 
 `notebooks/00_rank_and_preflight_study.ipynb` is a CPU-friendly planning notebook for rank, adapter-memory, and update-step tradeoffs before launching a GPU run.
+`notebooks/01_prompt_review.ipynb` creates a small adapter review prompt set and summarizes `reports/generations.json` after evaluation.
 
 ## Evaluate an Adapter
 
