@@ -35,6 +35,23 @@ def estimate_update_steps(
     }
 
 
+def estimate_token_budget(
+    train_examples: int,
+    config: QLoRAConfig,
+    world_size: int = 1,
+) -> dict[str, int]:
+    steps = estimate_update_steps(train_examples, config, world_size)
+    tokens_per_device_batch = config.batch_size * config.max_seq_length
+    tokens_per_update = steps["effective_batch_size"] * config.max_seq_length
+    total_seen_examples = math.ceil(train_examples * config.epochs)
+    return {
+        "max_seq_length": config.max_seq_length,
+        "tokens_per_device_batch": tokens_per_device_batch,
+        "tokens_per_update": tokens_per_update,
+        "max_seen_tokens": total_seen_examples * config.max_seq_length,
+    }
+
+
 def runtime_summary() -> dict[str, Any]:
     devices = []
     if torch.cuda.is_available():
@@ -102,6 +119,7 @@ def build_preflight_report(
     }
     if train_examples is not None:
         report["steps"] = estimate_update_steps(train_examples, config, world_size)
+        report["token_budget"] = estimate_token_budget(train_examples, config, world_size)
     if base_parameters is not None:
         report["memory_estimate"] = {
             "base_parameters": base_parameters,
