@@ -1,3 +1,5 @@
+import pytest
+
 from qlora_lab.experiments import (
     decoder_block_shapes,
     lora_parameter_count,
@@ -44,3 +46,25 @@ def test_rank_sweep_can_be_saved_as_csv(tmp_path) -> None:
     rows = output.read_text().splitlines()
     assert rows[0].startswith("hidden_size,intermediate_size,layers")
     assert ",4,8,2.0," in rows[1]
+
+
+def test_rank_sweep_rejects_empty_rank_list() -> None:
+    with pytest.raises(ValueError, match="ranks"):
+        rank_sweep_report(
+            ranks=[],
+            hidden_size=16,
+            intermediate_size=32,
+            layers=2,
+            base_parameters=10_000,
+        )
+
+
+def test_rank_sweep_rejects_bad_base_size() -> None:
+    with pytest.raises(ValueError, match="base_parameters"):
+        rank_sweep_report(
+            ranks=[4],
+            hidden_size=16,
+            intermediate_size=32,
+            layers=2,
+            base_parameters=0,
+        )

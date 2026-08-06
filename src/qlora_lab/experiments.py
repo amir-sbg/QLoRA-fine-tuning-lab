@@ -55,6 +55,14 @@ def rank_sweep_report(
     base_parameters: int,
     alpha_multiplier: int = 2,
 ) -> dict:
+    ranks = list(ranks)
+    if not ranks:
+        raise ValueError("ranks must not be empty")
+    if base_parameters < 1:
+        raise ValueError("base_parameters must be positive")
+    if alpha_multiplier < 1:
+        raise ValueError("alpha_multiplier must be positive")
+
     shapes = decoder_block_shapes(hidden_size, intermediate_size, layers)
     base_4bit_bytes = estimate_4bit_storage_bytes(base_parameters)
     rows = []
