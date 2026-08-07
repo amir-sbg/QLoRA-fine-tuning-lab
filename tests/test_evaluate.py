@@ -2,7 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from qlora_lab.evaluate import build_generation_kwargs, load_prompts
+from qlora_lab.evaluate import (
+    build_generation_kwargs,
+    load_prompts,
+    save_generation_csv,
+)
 
 
 def test_load_prompts_accepts_prompt_and_file(tmp_path: Path) -> None:
@@ -43,3 +47,24 @@ def test_generation_kwargs_include_sampling_options() -> None:
 def test_generation_kwargs_reject_invalid_top_p() -> None:
     with pytest.raises(ValueError, match="top_p"):
         build_generation_kwargs(max_new_tokens=32, top_p=1.5)
+
+
+def test_generation_results_can_be_saved_as_csv(tmp_path: Path) -> None:
+    output = tmp_path / "generations.csv"
+
+    save_generation_csv(
+        [
+            {
+                "model_name": "tiny",
+                "adapter_dir": "adapter",
+                "prompt": "Explain LoRA.",
+                "generation": "Low-rank adapters.",
+            }
+        ],
+        output,
+    )
+
+    assert output.read_text().splitlines() == [
+        "model_name,adapter_dir,prompt,generation",
+        "tiny,adapter,Explain LoRA.,Low-rank adapters.",
+    ]

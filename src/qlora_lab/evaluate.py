@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 
 import torch
@@ -48,6 +49,16 @@ def build_generation_kwargs(
         kwargs["temperature"] = temperature
         kwargs["top_p"] = top_p
     return kwargs
+
+
+def save_generation_csv(results: list[dict], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["model_name", "adapter_dir", "prompt", "generation"]
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for result in results:
+            writer.writerow({key: result.get(key, "") for key in fieldnames})
 
 
 def generate_from_adapter(
@@ -104,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--do-sample", action="store_true")
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--csv-output", type=Path)
     return parser
 
 
@@ -123,6 +135,8 @@ def main() -> None:
         for prompt in load_prompts(args.prompt, args.prompt_file)
     ]
     save_json({"generations": results}, config.report_dir / "generations.json")
+    if args.csv_output is not None:
+        save_generation_csv(results, args.csv_output)
     for index, result in enumerate(results, start=1):
         print(f"[{index}] {result['generation']}")
 

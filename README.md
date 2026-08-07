@@ -108,10 +108,11 @@ For a small repeatable prompt set, put one prompt per line and pass `--prompt-fi
 ```bash
 python -m qlora_lab.evaluate \
   --adapter-dir artifacts/qlora-adapter \
-  --prompt-file prompts/eval_prompts.txt
+  --prompt-file prompts/eval_prompts.txt \
+  --csv-output reports/generations.csv
 ```
 
-The evaluator loads the saved adapter and writes generated samples to `reports/generations.json`. It uses deterministic generation by default; pass `--do-sample --temperature 0.8 --top-p 0.9` when sampling is useful for qualitative checks.
+The evaluator loads the saved adapter and writes generated samples to `reports/generations.json`. Use `--csv-output` when a flat review table is more convenient. It uses deterministic generation by default; pass `--do-sample --temperature 0.8 --top-p 0.9` when sampling is useful for qualitative checks.
 
 ## Repository Layout
 
