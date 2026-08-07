@@ -6,6 +6,7 @@ from qlora_lab.data import (
     build_prompt,
     extract_instruction_fields,
     has_training_signal,
+    normalize_text,
     tokenize_example,
     tokenized_dataset_profile,
     validate_tokenized_profile,
@@ -53,6 +54,13 @@ def test_prompt_includes_context_when_available() -> None:
     assert prompt.endswith("### Response:\n")
 
 
+def test_prompt_normalizes_extra_whitespace() -> None:
+    prompt = build_prompt("  Summarize   this\narticle ", "  A   short\tarticle ")
+
+    assert "Summarize this article" in prompt
+    assert "A short article" in prompt
+
+
 def test_extract_instruction_fields_supports_common_columns() -> None:
     instruction, context, response = extract_instruction_fields(
         {"question": "What is LoRA?", "context": "adapters", "answer": "low rank"}
@@ -61,6 +69,24 @@ def test_extract_instruction_fields_supports_common_columns() -> None:
     assert instruction == "What is LoRA?"
     assert context == "adapters"
     assert response == "low rank"
+
+
+def test_extract_instruction_fields_normalizes_text() -> None:
+    instruction, context, response = extract_instruction_fields(
+        {
+            "instruction": "  Explain\nQLoRA ",
+            "context": " adapter   training ",
+            "response": " low-rank\tupdates ",
+        }
+    )
+
+    assert instruction == "Explain QLoRA"
+    assert context == "adapter training"
+    assert response == "low-rank updates"
+
+
+def test_normalize_text_handles_none() -> None:
+    assert normalize_text(None) == ""
 
 
 def test_training_signal_requires_instruction_and_response() -> None:

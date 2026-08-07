@@ -8,9 +8,13 @@ import torch
 from .config import QLoRAConfig
 
 
+def normalize_text(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
 def build_prompt(instruction: str, context: str | None = None) -> str:
-    instruction = instruction.strip()
-    context = (context or "").strip()
+    instruction = normalize_text(instruction)
+    context = normalize_text(context)
     parts = ["### Instruction:", instruction]
     if context:
         parts.extend(["", "### Context:", context])
@@ -34,7 +38,7 @@ def extract_instruction_fields(example: dict[str, Any]) -> tuple[str, str, str]:
         or example.get("completion")
         or ""
     )
-    return str(instruction), str(context), str(response)
+    return normalize_text(instruction), normalize_text(context), normalize_text(response)
 
 
 def has_training_signal(example: dict[str, Any]) -> bool:
