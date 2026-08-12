@@ -90,3 +90,21 @@ def estimate_4bit_storage_bytes(
     code_bytes = ceil(num_values / 2)
     scale_count = ceil(num_values / block_size)
     return code_bytes + scale_count * scale_bytes
+
+
+def nf4_error_report(values: torch.Tensor, block_size: int = 64) -> dict[str, float | int]:
+    quantized = quantize_nf4(values, block_size=block_size)
+    restored = dequantize_nf4(quantized)
+    error = (restored - values.detach().to(torch.float32)).reshape(-1)
+    fp16_bytes = values.numel() * 2
+    nf4_bytes = estimate_4bit_storage_bytes(values.numel(), block_size=block_size)
+    return {
+        "num_values": int(values.numel()),
+        "block_size": int(block_size),
+        "mse": float((error**2).mean().item()),
+        "mae": float(error.abs().mean().item()),
+        "max_abs_error": float(error.abs().max().item()),
+        "fp16_bytes": int(fp16_bytes),
+        "nf4_bytes": int(nf4_bytes),
+        "compression_ratio_vs_fp16": round(fp16_bytes / nf4_bytes, 4),
+    }

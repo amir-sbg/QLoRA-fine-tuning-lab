@@ -3,6 +3,7 @@ import torch
 from qlora_lab.quantization import (
     dequantize_nf4,
     estimate_4bit_storage_bytes,
+    nf4_error_report,
     nf4_codebook,
     quantize_nf4,
 )
@@ -29,3 +30,14 @@ def test_nf4_round_trip_preserves_shape_and_range() -> None:
 
 def test_storage_estimate_accounts_for_codes_and_scales() -> None:
     assert estimate_4bit_storage_bytes(64, block_size=64, scale_bytes=2) == 34
+
+
+def test_nf4_error_report_exposes_quality_and_storage() -> None:
+    values = torch.linspace(-1.0, 1.0, steps=128)
+    report = nf4_error_report(values, block_size=32)
+
+    assert report["num_values"] == 128
+    assert report["block_size"] == 32
+    assert report["mse"] >= 0
+    assert report["nf4_bytes"] < report["fp16_bytes"]
+    assert report["compression_ratio_vs_fp16"] > 1

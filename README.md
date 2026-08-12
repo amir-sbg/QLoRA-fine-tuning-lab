@@ -12,7 +12,7 @@ W_eff = dequant_4bit(W_q) + (alpha / r) * B @ A
 
 `W_q` is the quantized base weight, while `A` and `B` are the trainable LoRA matrices. Increasing rank `r` gives the adapter more capacity, but it also increases memory and optimizer state. This project keeps those choices explicit in the config and in the experiment report.
 
-The training path uses the normal Hugging Face stack: `transformers`, `datasets`, `peft`, `accelerate`, and `bitsandbytes`. The `qlora_lab.quantization` module includes a small NF4 block quantizer as a reference implementation so the 4-bit idea is testable without needing a GPU.
+The training path uses the normal Hugging Face stack: `transformers`, `datasets`, `peft`, `accelerate`, and `bitsandbytes`. The `qlora_lab.quantization` module includes a small NF4 block quantizer and reconstruction-error report so the 4-bit idea is testable without needing a GPU.
 
 ## Project Flow
 
