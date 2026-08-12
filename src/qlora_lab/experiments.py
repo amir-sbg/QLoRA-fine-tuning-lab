@@ -54,6 +54,7 @@ def rank_sweep_report(
     layers: int,
     base_parameters: int,
     alpha_multiplier: int = 2,
+    adapter_memory_budget_mb: float | None = None,
 ) -> dict:
     ranks = list(ranks)
     if not ranks:
@@ -76,12 +77,22 @@ def rank_sweep_report(
                 "scale": alpha / rank,
                 "adapter_parameters": adapter_parameters,
                 "adapter_memory_mb_fp16": round(adapter_parameters * 2 / 1_048_576, 3),
+                "fits_adapter_budget": (
+                    adapter_parameters * 2 / 1_048_576 <= adapter_memory_budget_mb
+                    if adapter_memory_budget_mb is not None
+                    else None
+                ),
                 "adapter_vs_base_percent": round(
                     100 * adapter_parameters / base_parameters,
                     4,
                 ),
             }
         )
+    ranks_under_budget = [
+        row["rank"]
+        for row in rows
+        if adapter_memory_budget_mb is not None and row["fits_adapter_budget"]
+    ]
     return {
         "assumptions": {
             "hidden_size": hidden_size,
@@ -89,6 +100,8 @@ def rank_sweep_report(
             "layers": layers,
             "base_parameters": base_parameters,
             "base_4bit_memory_mb": round(base_4bit_bytes / 1_048_576, 3),
+            "adapter_memory_budget_mb": adapter_memory_budget_mb,
+            "largest_rank_under_budget": max(ranks_under_budget) if ranks_under_budget else None,
             "target_modules": sorted({shape.name.split(".")[-1] for shape in shapes}),
         },
         "rank_sweep": rows,
@@ -127,6 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--intermediate-size", type=int, default=8192)
     parser.add_argument("--layers", type=int, default=24)
     parser.add_argument("--base-parameters", type=int, default=1_500_000_000)
+    parser.add_argument("--adapter-memory-budget-mb", type=float)
     parser.add_argument("--output", type=Path, default=Path("reports/rank_sweep.json"))
     parser.add_argument("--csv-output", type=Path)
     return parser
@@ -140,6 +154,7 @@ def main() -> None:
         intermediate_size=args.intermediate_size,
         layers=args.layers,
         base_parameters=args.base_parameters,
+        adapter_memory_budget_mb=args.adapter_memory_budget_mb,
     )
     save_json(report, args.output)
     print(f"wrote {args.output}")

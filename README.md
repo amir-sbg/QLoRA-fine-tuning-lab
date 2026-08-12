@@ -84,11 +84,12 @@ python -m qlora_lab.experiments \
   --intermediate-size 8192 \
   --layers 24 \
   --base-parameters 1500000000 \
+  --adapter-memory-budget-mb 512 \
   --output reports/rank_sweep.json \
   --csv-output reports/rank_sweep.csv
 ```
 
-This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated 4-bit backbone memory, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
+This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated 4-bit backbone memory, whether each rank fits an optional adapter-memory budget, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
 
 ## Notebooks
 

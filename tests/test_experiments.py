@@ -31,6 +31,22 @@ def test_rank_sweep_grows_linearly_with_rank() -> None:
     assert rows[0]["scale"] == 2.0
 
 
+def test_rank_sweep_marks_ranks_under_memory_budget() -> None:
+    report = rank_sweep_report(
+        ranks=[4, 8, 16],
+        hidden_size=64,
+        intermediate_size=128,
+        layers=4,
+        base_parameters=1_000_000,
+        adapter_memory_budget_mb=0.05,
+    )
+    rows = report["rank_sweep"]
+
+    assert any(row["fits_adapter_budget"] for row in rows)
+    assert rows[-1]["fits_adapter_budget"] is False
+    assert report["assumptions"]["largest_rank_under_budget"] in {4, 8}
+
+
 def test_rank_sweep_can_be_saved_as_csv(tmp_path) -> None:
     report = rank_sweep_report(
         ranks=[4],
