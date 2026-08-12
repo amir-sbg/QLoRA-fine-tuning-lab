@@ -12,12 +12,18 @@ from qlora_lab.evaluate import (
 def test_load_prompts_accepts_prompt_and_file(tmp_path: Path) -> None:
     prompt_file = tmp_path / "prompts.txt"
     prompt_file.write_text(
-        "# skipped comment\n\nExplain LoRA.\nSummarize NF4.\n"
+        "# skipped comment\n\nExplain LoRA.\nSummarize NF4.\nچرا QLoRA مفید است؟\n",
+        encoding="utf-8",
     )
 
     prompts = load_prompts("Explain QLoRA.", prompt_file)
 
-    assert prompts == ["Explain QLoRA.", "Explain LoRA.", "Summarize NF4."]
+    assert prompts == [
+        "Explain QLoRA.",
+        "Explain LoRA.",
+        "Summarize NF4.",
+        "چرا QLoRA مفید است؟",
+    ]
 
 
 def test_load_prompts_requires_input() -> None:

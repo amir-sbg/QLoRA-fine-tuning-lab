@@ -19,7 +19,7 @@ def load_prompts(prompt: str | None, prompt_file: Path | None) -> list[str]:
             raise FileNotFoundError(f"prompt file not found: {prompt_file}")
         prompts.extend(
             line.strip()
-            for line in prompt_file.read_text().splitlines()
+            for line in prompt_file.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         )
     prompts = [value for value in prompts if value]
@@ -54,7 +54,7 @@ def build_generation_kwargs(
 def save_generation_csv(results: list[dict], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = ["model_name", "adapter_dir", "prompt", "generation"]
-    with path.open("w", newline="") as handle:
+    with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for result in results:
