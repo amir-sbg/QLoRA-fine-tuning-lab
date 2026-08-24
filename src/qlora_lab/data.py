@@ -161,6 +161,20 @@ def _limit_split(dataset: Any, max_samples: int | None) -> Any:
     return dataset.select(range(min(max_samples, len(dataset))))
 
 
+def split_and_limit_dataset(
+    dataset: Any,
+    eval_size: float,
+    seed: int,
+    max_train_samples: int | None,
+    max_eval_samples: int | None,
+) -> dict[str, Any]:
+    split = dataset.train_test_split(test_size=eval_size, seed=seed)
+    return {
+        "train": _limit_split(split["train"], max_train_samples),
+        "eval": _limit_split(split["test"], max_eval_samples),
+    }
+
+
 def prepare_datasets(config: QLoRAConfig, tokenizer: Any) -> dict[str, Any]:
     try:
         from datasets import load_dataset
@@ -177,22 +191,25 @@ def prepare_datasets(config: QLoRAConfig, tokenizer: Any) -> dict[str, Any]:
         desc="Filtering empty instruction rows",
     )
     dataset = dataset.shuffle(seed=config.seed)
-    dataset = _limit_split(dataset, config.max_train_samples)
-    split = dataset.train_test_split(test_size=config.eval_size, seed=config.seed)
-    train_dataset = _limit_split(split["train"], config.max_train_samples)
-    eval_dataset = _limit_split(split["test"], config.max_eval_samples)
+    split = split_and_limit_dataset(
+        dataset,
+        eval_size=config.eval_size,
+        seed=config.seed,
+        max_train_samples=config.max_train_samples,
+        max_eval_samples=config.max_eval_samples,
+    )
 
     def tokenize(row: dict[str, Any]) -> dict[str, list[int]]:
         return tokenize_example(row, tokenizer, config.max_seq_length)
 
-    train_dataset = train_dataset.map(
+    train_dataset = split["train"].map(
         tokenize,
-        remove_columns=train_dataset.column_names,
+        remove_columns=split["train"].column_names,
         desc="Tokenizing train examples",
     )
-    eval_dataset = eval_dataset.map(
+    eval_dataset = split["eval"].map(
         tokenize,
-        remove_columns=eval_dataset.column_names,
+        remove_columns=split["eval"].column_names,
         desc="Tokenizing eval examples",
     )
     return {"train": train_dataset, "eval": eval_dataset}

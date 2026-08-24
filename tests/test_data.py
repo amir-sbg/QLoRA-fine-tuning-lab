@@ -7,6 +7,7 @@ from qlora_lab.data import (
     extract_instruction_fields,
     has_training_signal,
     normalize_text,
+    split_and_limit_dataset,
     tokenize_example,
     tokenized_dataset_profile,
     validate_tokenized_profile,
@@ -43,6 +44,26 @@ class ToyTokenizer:
         return {
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
             "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
+        }
+
+
+class TinyDataset:
+    column_names = ["instruction", "response"]
+
+    def __init__(self, rows):
+        self.rows = list(rows)
+
+    def __len__(self):
+        return len(self.rows)
+
+    def select(self, indices):
+        return TinyDataset([self.rows[index] for index in indices])
+
+    def train_test_split(self, test_size, seed):
+        cutoff = int(round(len(self.rows) * (1 - test_size)))
+        return {
+            "train": TinyDataset(self.rows[:cutoff]),
+            "test": TinyDataset(self.rows[cutoff:]),
         }
 
 
@@ -93,6 +114,21 @@ def test_training_signal_requires_instruction_and_response() -> None:
     assert has_training_signal({"instruction": "Explain", "response": "Text"})
     assert not has_training_signal({"instruction": "Explain", "response": ""})
     assert not has_training_signal({"response": "Text"})
+
+
+def test_split_limits_are_applied_after_eval_split() -> None:
+    dataset = TinyDataset(range(20))
+
+    split = split_and_limit_dataset(
+        dataset,
+        eval_size=0.25,
+        seed=7,
+        max_train_samples=5,
+        max_eval_samples=4,
+    )
+
+    assert len(split["train"]) == 5
+    assert len(split["eval"]) == 4
 
 
 def test_tokenize_masks_prompt_tokens() -> None:
