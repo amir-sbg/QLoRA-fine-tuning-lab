@@ -1,6 +1,7 @@
 import pytest
 
 from qlora_lab.experiments import (
+    adapter_training_memory_mb,
     decoder_block_shapes,
     lora_parameter_count,
     rank_sweep_report,
@@ -28,7 +29,22 @@ def test_rank_sweep_grows_linearly_with_rank() -> None:
     rows = report["rank_sweep"]
 
     assert rows[1]["adapter_parameters"] == rows[0]["adapter_parameters"] * 2
+    assert rows[1]["adapter_training_memory_mb"] == rows[0]["adapter_training_memory_mb"] * 2
     assert rows[0]["scale"] == 2.0
+
+
+def test_adapter_training_memory_includes_optimizer_state() -> None:
+    memory = adapter_training_memory_mb(1024)
+
+    assert memory["adapter_parameter_memory_mb"] == pytest.approx(
+        1024 * 2 / 1_048_576,
+        abs=1e-3,
+    )
+    assert memory["adapter_optimizer_state_mb"] == pytest.approx(
+        1024 * 8 / 1_048_576,
+        abs=1e-3,
+    )
+    assert memory["adapter_training_memory_mb"] > memory["adapter_parameter_memory_mb"]
 
 
 def test_rank_sweep_marks_ranks_under_memory_budget() -> None:
@@ -38,7 +54,7 @@ def test_rank_sweep_marks_ranks_under_memory_budget() -> None:
         intermediate_size=128,
         layers=4,
         base_parameters=1_000_000,
-        adapter_memory_budget_mb=0.05,
+        adapter_memory_budget_mb=0.25,
     )
     rows = report["rank_sweep"]
 

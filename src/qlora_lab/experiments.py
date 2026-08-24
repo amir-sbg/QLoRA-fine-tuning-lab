@@ -47,6 +47,33 @@ def lora_parameter_count(shapes: Iterable[LinearShape], rank: int) -> int:
     return sum(rank * (shape.in_features + shape.out_features) for shape in shapes)
 
 
+def adapter_training_memory_mb(
+    adapter_parameters: int,
+    parameter_bytes: int = 2,
+    gradient_bytes: int = 2,
+    optimizer_state_bytes: int = 8,
+) -> dict[str, float]:
+    if adapter_parameters < 1:
+        raise ValueError("adapter_parameters must be positive")
+    for name, value in (
+        ("parameter_bytes", parameter_bytes),
+        ("gradient_bytes", gradient_bytes),
+        ("optimizer_state_bytes", optimizer_state_bytes),
+    ):
+        if value < 0:
+            raise ValueError(f"{name} must not be negative")
+
+    parameter_mb = adapter_parameters * parameter_bytes / 1_048_576
+    gradient_mb = adapter_parameters * gradient_bytes / 1_048_576
+    optimizer_mb = adapter_parameters * optimizer_state_bytes / 1_048_576
+    return {
+        "adapter_parameter_memory_mb": round(parameter_mb, 3),
+        "adapter_gradient_memory_mb": round(gradient_mb, 3),
+        "adapter_optimizer_state_mb": round(optimizer_mb, 3),
+        "adapter_training_memory_mb": round(parameter_mb + gradient_mb + optimizer_mb, 3),
+    }
+
+
 def rank_sweep_report(
     ranks: Iterable[int],
     hidden_size: int,
@@ -70,6 +97,7 @@ def rank_sweep_report(
     for rank in ranks:
         alpha = rank * alpha_multiplier
         adapter_parameters = lora_parameter_count(shapes, rank)
+        memory = adapter_training_memory_mb(adapter_parameters)
         rows.append(
             {
                 "rank": rank,
@@ -77,8 +105,9 @@ def rank_sweep_report(
                 "scale": alpha / rank,
                 "adapter_parameters": adapter_parameters,
                 "adapter_memory_mb_fp16": round(adapter_parameters * 2 / 1_048_576, 3),
+                **memory,
                 "fits_adapter_budget": (
-                    adapter_parameters * 2 / 1_048_576 <= adapter_memory_budget_mb
+                    memory["adapter_training_memory_mb"] <= adapter_memory_budget_mb
                     if adapter_memory_budget_mb is not None
                     else None
                 ),

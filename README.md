@@ -24,7 +24,7 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 6. Train only the adapter weights and save the adapter checkpoint.
 7. Save a token profile so sequence length and supervised-token ratio are easy to inspect.
 8. Run a preflight report before using GPU time.
-9. Run a rank sweep report to compare adapter size, scale, and memory.
+9. Run a rank sweep report to compare adapter size, scale, and training memory.
 
 ## Setup
 
@@ -89,7 +89,7 @@ python -m qlora_lab.experiments \
   --csv-output reports/rank_sweep.csv
 ```
 
-This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated 4-bit backbone memory, whether each rank fits an optional adapter-memory budget, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
+This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated adapter gradient and optimizer-state memory, estimated 4-bit backbone memory, whether each rank fits an optional adapter-training-memory budget, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
 
 ## Notebooks
 
