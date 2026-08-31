@@ -22,6 +22,8 @@ def test_step_estimate_rounds_up_partial_epochs() -> None:
     assert steps["effective_batch_size"] == 8
     assert steps["steps_per_epoch"] == 9
     assert steps["estimated_total_steps"] == 14
+    assert steps["estimated_warmup_steps"] == 1
+    assert steps["estimated_decay_steps"] == 13
 
 
 def test_token_budget_uses_effective_batch_and_context_length() -> None:
@@ -36,6 +38,7 @@ def test_token_budget_uses_effective_batch_and_context_length() -> None:
     assert budget["tokens_per_device_batch"] == 256
     assert budget["tokens_per_update"] == 2048
     assert budget["max_seen_tokens"] == 98 * 128
+    assert budget["warmup_seen_tokens"] == 2048
 
 
 def test_preflight_report_includes_memory_estimate() -> None:
@@ -46,6 +49,7 @@ def test_preflight_report_includes_memory_estimate() -> None:
     )
 
     assert report["qlora"]["lora_scale"] == 2.0
+    assert report["optimizer"]["learning_rate"] == QLoRAConfig.learning_rate
     assert report["steps"]["train_examples"] == 100
     assert report["token_budget"]["max_seq_length"] == QLoRAConfig.max_seq_length
     assert report["memory_estimate"]["base_parameters"] == 10_000

@@ -27,11 +27,14 @@ def estimate_update_steps(
     batch = effective_batch_size(config, world_size)
     steps_per_epoch = math.ceil(train_examples / batch)
     total_steps = max(1, math.ceil(steps_per_epoch * config.epochs))
+    warmup_steps = math.ceil(total_steps * config.warmup_ratio)
     return {
         "train_examples": train_examples,
         "effective_batch_size": batch,
         "steps_per_epoch": steps_per_epoch,
         "estimated_total_steps": total_steps,
+        "estimated_warmup_steps": warmup_steps,
+        "estimated_decay_steps": max(total_steps - warmup_steps, 0),
     }
 
 
@@ -49,6 +52,7 @@ def estimate_token_budget(
         "tokens_per_device_batch": tokens_per_device_batch,
         "tokens_per_update": tokens_per_update,
         "max_seen_tokens": total_seen_examples * config.max_seq_length,
+        "warmup_seen_tokens": steps["estimated_warmup_steps"] * tokens_per_update,
     }
 
 
@@ -115,11 +119,21 @@ def build_preflight_report(
             "max_grad_norm": config.max_grad_norm,
             "target_modules": list(config.target_modules),
         },
+        "optimizer": {
+            "learning_rate": config.learning_rate,
+            "weight_decay": config.weight_decay,
+            "warmup_ratio": config.warmup_ratio,
+            "max_grad_norm": config.max_grad_norm,
+        },
         "warnings": preflight_warnings(config, runtime),
     }
     if train_examples is not None:
         report["steps"] = estimate_update_steps(train_examples, config, world_size)
         report["token_budget"] = estimate_token_budget(train_examples, config, world_size)
+        if report["steps"]["estimated_total_steps"] < 10:
+            report["warnings"].append(
+                "Very short training plan; evaluation metrics will be noisy."
+            )
     if base_parameters is not None:
         report["memory_estimate"] = {
             "base_parameters": base_parameters,

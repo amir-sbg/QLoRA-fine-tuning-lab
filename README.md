@@ -73,7 +73,7 @@ python -m qlora_lab.preflight \
   --gradient-accumulation-steps 8
 ```
 
-The report includes CUDA availability, effective batch size, estimated update steps, a max-token budget, 4-bit base-weight memory, LoRA scale, and basic warnings that are useful before starting a run.
+The report includes CUDA availability, effective batch size, estimated update and warmup steps, a max-token budget, 4-bit base-weight memory, LoRA scale, optimizer settings, and basic warnings that are useful before starting a run.
 
 ## Rank Experiment
 
