@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 from pathlib import Path
 
 import torch
 
 from .config import QLoRAConfig, save_json
 from .model import load_tokenizer
+
+WORD_RE = re.compile(r"[\w']+", re.UNICODE)
 
 
 def load_prompts(prompt: str | None, prompt_file: Path | None) -> list[str]:
@@ -49,6 +52,68 @@ def build_generation_kwargs(
         kwargs["temperature"] = temperature
         kwargs["top_p"] = top_p
     return kwargs
+
+
+def normalized_words(text: str) -> list[str]:
+    return [match.group(0).casefold() for match in WORD_RE.finditer(text)]
+
+
+def repeated_bigram_rate(text: str) -> float:
+    words = normalized_words(text)
+    if len(words) < 3:
+        return 0.0
+    bigrams = list(zip(words, words[1:]))
+    repeated = len(bigrams) - len(set(bigrams))
+    return round(repeated / len(bigrams), 4)
+
+
+def generation_review_row(result: dict) -> dict[str, float | int | bool]:
+    prompt_words = normalized_words(str(result.get("prompt", "")))
+    generation_words = normalized_words(str(result.get("generation", "")))
+    unique_ratio = (
+        len(set(generation_words)) / len(generation_words)
+        if generation_words
+        else 0.0
+    )
+    return {
+        "prompt_words": len(prompt_words),
+        "generation_words": len(generation_words),
+        "generation_chars": len(str(result.get("generation", ""))),
+        "empty_generation": not bool(generation_words),
+        "unique_word_ratio": round(unique_ratio, 4),
+        "repeated_bigram_rate": repeated_bigram_rate(
+            str(result.get("generation", "")),
+        ),
+    }
+
+
+def summarize_generation_review(results: list[dict]) -> dict:
+    rows = [generation_review_row(result) for result in results]
+    if not rows:
+        return {
+            "examples": 0,
+            "empty_generations": 0,
+            "avg_prompt_words": 0.0,
+            "avg_generation_words": 0.0,
+            "avg_unique_word_ratio": 0.0,
+            "max_repeated_bigram_rate": 0.0,
+            "rows": [],
+        }
+
+    def avg(key: str) -> float:
+        return round(sum(float(row[key]) for row in rows) / len(rows), 3)
+
+    return {
+        "examples": len(rows),
+        "empty_generations": sum(1 for row in rows if row["empty_generation"]),
+        "avg_prompt_words": avg("prompt_words"),
+        "avg_generation_words": avg("generation_words"),
+        "avg_unique_word_ratio": avg("unique_word_ratio"),
+        "max_repeated_bigram_rate": max(
+            float(row["repeated_bigram_rate"]) for row in rows
+        ),
+        "rows": rows,
+    }
 
 
 def save_generation_csv(results: list[dict], path: Path) -> None:
@@ -134,7 +199,13 @@ def main() -> None:
         )
         for prompt in load_prompts(args.prompt, args.prompt_file)
     ]
-    save_json({"generations": results}, config.report_dir / "generations.json")
+    save_json(
+        {
+            "generations": results,
+            "generation_review": summarize_generation_review(results),
+        },
+        config.report_dir / "generations.json",
+    )
     if args.csv_output is not None:
         save_generation_csv(results, args.csv_output)
     for index, result in enumerate(results, start=1):

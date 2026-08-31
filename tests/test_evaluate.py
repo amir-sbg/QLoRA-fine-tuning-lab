@@ -5,7 +5,9 @@ import pytest
 from qlora_lab.evaluate import (
     build_generation_kwargs,
     load_prompts,
+    repeated_bigram_rate,
     save_generation_csv,
+    summarize_generation_review,
 )
 
 
@@ -74,3 +76,23 @@ def test_generation_results_can_be_saved_as_csv(tmp_path: Path) -> None:
         "model_name,adapter_dir,prompt,generation",
         "tiny,adapter,Explain LoRA.,Low-rank adapters.",
     ]
+
+
+def test_repeated_bigram_rate_flags_looping_text() -> None:
+    assert repeated_bigram_rate("adapter learns adapter learns adapter learns") > 0
+    assert repeated_bigram_rate("adapter learns a compact residual update") == 0.0
+
+
+def test_generation_review_summarizes_outputs() -> None:
+    report = summarize_generation_review(
+        [
+            {"prompt": "Explain LoRA", "generation": "Low rank adapter update."},
+            {"prompt": "Explain NF4", "generation": ""},
+        ]
+    )
+
+    assert report["examples"] == 2
+    assert report["empty_generations"] == 1
+    assert report["avg_prompt_words"] == 2.0
+    assert report["avg_generation_words"] == 2.0
+    assert report["rows"][0]["unique_word_ratio"] == 1.0
