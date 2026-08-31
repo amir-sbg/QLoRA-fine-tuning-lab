@@ -8,6 +8,8 @@ from qlora_lab.data import (
     has_training_signal,
     normalize_text,
     split_and_limit_dataset,
+    supervision_density_bucket,
+    supervision_density_counts,
     tokenize_example,
     tokenized_dataset_profile,
     validate_tokenized_profile,
@@ -168,6 +170,31 @@ def test_dataset_profile_reports_supervised_ratio() -> None:
     assert profile["examples"] == 2
     assert profile["max_input_tokens"] == 3
     assert profile["supervised_token_ratio"] == 0.6
+
+
+def test_supervision_density_bucket_tracks_loss_signal() -> None:
+    assert supervision_density_bucket(input_tokens=32, supervised_tokens=0) == "empty"
+    assert supervision_density_bucket(input_tokens=100, supervised_tokens=2) == "under_5_pct"
+    assert supervision_density_bucket(input_tokens=100, supervised_tokens=12) == "5_to_20_pct"
+    assert supervision_density_bucket(input_tokens=100, supervised_tokens=45) == "over_20_pct"
+
+
+def test_dataset_profile_reports_density_buckets() -> None:
+    profile = tokenized_dataset_profile(
+        [
+            {"input_ids": list(range(32)), "labels": [-100] * 32},
+            {"input_ids": list(range(100)), "labels": [-100] * 98 + [1, 2]},
+            {"input_ids": list(range(100)), "labels": [-100] * 88 + list(range(12))},
+            {"input_ids": list(range(100)), "labels": [-100] * 55 + list(range(45))},
+        ]
+    )
+
+    assert profile["min_supervised_tokens"] == 0
+    assert profile["max_supervised_tokens"] == 45
+    assert profile["supervision_density_buckets"] == supervision_density_counts(
+        [32, 100, 100, 100],
+        [0, 2, 12, 45],
+    )
 
 
 def test_profile_validation_rejects_empty_split() -> None:

@@ -22,7 +22,7 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 4. Load the base model in 4-bit NF4 with optional double quantization.
 5. Check the requested adapter target modules against the loaded model, then attach LoRA adapters to the matched projection layers.
 6. Train only the adapter weights and save the adapter checkpoint.
-7. Save a token profile so sequence length and supervised-token ratio are easy to inspect.
+7. Save a token and supervision-density profile so prompt masking and truncation are easy to inspect.
 8. Run a preflight report before using GPU time.
 9. Run a rank sweep report to compare adapter size, scale, and training memory.
 
@@ -54,7 +54,7 @@ python -m qlora_lab.train \
   --gradient-accumulation-steps 8
 ```
 
-Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`. The training command also checks that truncation has not removed almost all supervised response tokens before starting the Trainer.
+Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`. The training command also checks that truncation has not removed almost all supervised response tokens before starting the Trainer, then records how dense the response-side loss signal is across the split.
 
 Interrupted runs can be resumed from a Trainer checkpoint:
 

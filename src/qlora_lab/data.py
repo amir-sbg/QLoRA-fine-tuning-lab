@@ -7,6 +7,13 @@ import torch
 
 from .config import QLoRAConfig
 
+SUPERVISION_DENSITY_BUCKETS = (
+    "empty",
+    "under_5_pct",
+    "5_to_20_pct",
+    "over_20_pct",
+)
+
 
 def normalize_text(value: Any) -> str:
     return " ".join(str(value or "").split())
@@ -79,6 +86,28 @@ def tokenize_example(
     return encoded
 
 
+def supervision_density_bucket(input_tokens: int, supervised_tokens: int) -> str:
+    if supervised_tokens <= 0:
+        return "empty"
+    ratio = supervised_tokens / max(input_tokens, 1)
+    if ratio < 0.05:
+        return "under_5_pct"
+    if ratio < 0.20:
+        return "5_to_20_pct"
+    return "over_20_pct"
+
+
+def supervision_density_counts(
+    input_lengths: list[int],
+    supervised_lengths: list[int],
+) -> dict[str, int]:
+    counts = dict.fromkeys(SUPERVISION_DENSITY_BUCKETS, 0)
+    for input_tokens, supervised_tokens in zip(input_lengths, supervised_lengths):
+        bucket = supervision_density_bucket(input_tokens, supervised_tokens)
+        counts[bucket] += 1
+    return counts
+
+
 @dataclass
 class SupervisedDataCollator:
     tokenizer: Any
@@ -110,7 +139,7 @@ class SupervisedDataCollator:
         return batch
 
 
-def tokenized_dataset_profile(dataset: Any) -> dict[str, float | int]:
+def tokenized_dataset_profile(dataset: Any) -> dict[str, Any]:
     rows = list(dataset)
     if not rows:
         return {
@@ -118,7 +147,13 @@ def tokenized_dataset_profile(dataset: Any) -> dict[str, float | int]:
             "avg_input_tokens": 0.0,
             "max_input_tokens": 0,
             "avg_supervised_tokens": 0.0,
+            "min_supervised_tokens": 0,
+            "max_supervised_tokens": 0,
             "supervised_token_ratio": 0.0,
+            "supervision_density_buckets": dict.fromkeys(
+                SUPERVISION_DENSITY_BUCKETS,
+                0,
+            ),
         }
 
     input_lengths = [len(row["input_ids"]) for row in rows]
@@ -132,15 +167,21 @@ def tokenized_dataset_profile(dataset: Any) -> dict[str, float | int]:
         "avg_input_tokens": round(sum(input_lengths) / len(rows), 3),
         "max_input_tokens": max(input_lengths),
         "avg_supervised_tokens": round(sum(supervised_lengths) / len(rows), 3),
+        "min_supervised_tokens": min(supervised_lengths),
+        "max_supervised_tokens": max(supervised_lengths),
         "supervised_token_ratio": round(
             sum(supervised_lengths) / max(total_tokens, 1),
             4,
+        ),
+        "supervision_density_buckets": supervision_density_counts(
+            input_lengths,
+            supervised_lengths,
         ),
     }
 
 
 def validate_tokenized_profile(
-    profile: dict[str, float | int],
+    profile: dict[str, Any],
     split_name: str,
     min_supervised_ratio: float = 0.01,
 ) -> None:
