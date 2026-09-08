@@ -56,6 +56,48 @@ def estimate_token_budget(
     }
 
 
+def learning_rate_preview(
+    total_steps: int,
+    warmup_steps: int,
+    learning_rate: float,
+) -> list[dict[str, float | int]]:
+    if total_steps < 1:
+        raise ValueError("total_steps must be positive")
+    if warmup_steps < 0:
+        raise ValueError("warmup_steps must not be negative")
+    if learning_rate <= 0:
+        raise ValueError("learning_rate must be positive")
+
+    checkpoints = sorted(
+        {
+            1,
+            min(max(warmup_steps, 1), total_steps),
+            max(1, total_steps // 2),
+            total_steps,
+        }
+    )
+    return [
+        {
+            "step": step,
+            "lr": round(_linear_warmup_decay_lr(step, total_steps, warmup_steps, learning_rate), 10),
+        }
+        for step in checkpoints
+    ]
+
+
+def _linear_warmup_decay_lr(
+    step: int,
+    total_steps: int,
+    warmup_steps: int,
+    learning_rate: float,
+) -> float:
+    if warmup_steps > 0 and step <= warmup_steps:
+        return learning_rate * step / warmup_steps
+    decay_steps = max(total_steps - warmup_steps, 1)
+    progress = (step - warmup_steps) / decay_steps
+    return learning_rate * max(0.0, 1.0 - progress)
+
+
 def runtime_summary() -> dict[str, Any]:
     devices = []
     if torch.cuda.is_available():
@@ -130,6 +172,11 @@ def build_preflight_report(
     if train_examples is not None:
         report["steps"] = estimate_update_steps(train_examples, config, world_size)
         report["token_budget"] = estimate_token_budget(train_examples, config, world_size)
+        report["lr_preview"] = learning_rate_preview(
+            report["steps"]["estimated_total_steps"],
+            report["steps"]["estimated_warmup_steps"],
+            config.learning_rate,
+        )
         if report["steps"]["estimated_total_steps"] < 10:
             report["warnings"].append(
                 "Very short training plan; evaluation metrics will be noisy."

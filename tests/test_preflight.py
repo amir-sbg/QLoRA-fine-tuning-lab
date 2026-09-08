@@ -6,6 +6,7 @@ from qlora_lab.preflight import (
     effective_batch_size,
     estimate_token_budget,
     estimate_update_steps,
+    learning_rate_preview,
 )
 
 
@@ -52,7 +53,21 @@ def test_preflight_report_includes_memory_estimate() -> None:
     assert report["optimizer"]["learning_rate"] == QLoRAConfig.learning_rate
     assert report["steps"]["train_examples"] == 100
     assert report["token_budget"]["max_seq_length"] == QLoRAConfig.max_seq_length
+    assert report["lr_preview"][0]["step"] == 1
     assert report["memory_estimate"]["base_parameters"] == 10_000
+
+
+def test_learning_rate_preview_tracks_warmup_and_decay() -> None:
+    preview = learning_rate_preview(
+        total_steps=10,
+        warmup_steps=2,
+        learning_rate=1e-4,
+    )
+
+    by_step = {row["step"]: row["lr"] for row in preview}
+    assert by_step[1] == 0.00005
+    assert by_step[2] == 0.0001
+    assert by_step[10] == 0.0
 
 
 def test_preflight_rejects_bad_world_size() -> None:
