@@ -5,6 +5,7 @@ import pytest
 from qlora_lab.evaluate import (
     build_generation_kwargs,
     load_prompts,
+    prompt_overlap_rate,
     repeated_bigram_rate,
     save_generation_csv,
     summarize_generation_review,
@@ -83,10 +84,15 @@ def test_repeated_bigram_rate_flags_looping_text() -> None:
     assert repeated_bigram_rate("adapter learns a compact residual update") == 0.0
 
 
+def test_prompt_overlap_rate_tracks_echoed_instruction_terms() -> None:
+    assert prompt_overlap_rate("Explain LoRA adapters", "LoRA adapters help tuning") == 0.5
+    assert prompt_overlap_rate("Explain LoRA", "") == 0.0
+
+
 def test_generation_review_summarizes_outputs() -> None:
     report = summarize_generation_review(
         [
-            {"prompt": "Explain LoRA", "generation": "Low rank adapter update."},
+            {"prompt": "Explain LoRA", "generation": "Explain LoRA with adapters."},
             {"prompt": "Explain NF4", "generation": ""},
         ]
     )
@@ -95,4 +101,6 @@ def test_generation_review_summarizes_outputs() -> None:
     assert report["empty_generations"] == 1
     assert report["avg_prompt_words"] == 2.0
     assert report["avg_generation_words"] == 2.0
+    assert report["prompt_echoes"] == 1
+    assert report["avg_prompt_overlap_rate"] > 0
     assert report["rows"][0]["unique_word_ratio"] == 1.0

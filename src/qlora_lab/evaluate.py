@@ -67,9 +67,21 @@ def repeated_bigram_rate(text: str) -> float:
     return round(repeated / len(bigrams), 4)
 
 
+def prompt_overlap_rate(prompt: str, generation: str) -> float:
+    prompt_terms = set(normalized_words(prompt))
+    generation_terms = set(normalized_words(generation))
+    if not generation_terms:
+        return 0.0
+    if not prompt_terms:
+        return 0.0
+    return round(len(prompt_terms & generation_terms) / len(generation_terms), 4)
+
+
 def generation_review_row(result: dict) -> dict[str, float | int | bool]:
-    prompt_words = normalized_words(str(result.get("prompt", "")))
-    generation_words = normalized_words(str(result.get("generation", "")))
+    prompt = str(result.get("prompt", ""))
+    generation = str(result.get("generation", ""))
+    prompt_words = normalized_words(prompt)
+    generation_words = normalized_words(generation)
     unique_ratio = (
         len(set(generation_words)) / len(generation_words)
         if generation_words
@@ -80,10 +92,12 @@ def generation_review_row(result: dict) -> dict[str, float | int | bool]:
         "generation_words": len(generation_words),
         "generation_chars": len(str(result.get("generation", ""))),
         "empty_generation": not bool(generation_words),
-        "unique_word_ratio": round(unique_ratio, 4),
-        "repeated_bigram_rate": repeated_bigram_rate(
-            str(result.get("generation", "")),
+        "starts_with_prompt": bool(
+            prompt.strip() and generation.strip().startswith(prompt.strip())
         ),
+        "prompt_overlap_rate": prompt_overlap_rate(prompt, generation),
+        "unique_word_ratio": round(unique_ratio, 4),
+        "repeated_bigram_rate": repeated_bigram_rate(generation),
     }
 
 
@@ -96,6 +110,8 @@ def summarize_generation_review(results: list[dict]) -> dict:
             "avg_prompt_words": 0.0,
             "avg_generation_words": 0.0,
             "avg_unique_word_ratio": 0.0,
+            "avg_prompt_overlap_rate": 0.0,
+            "prompt_echoes": 0,
             "max_repeated_bigram_rate": 0.0,
             "rows": [],
         }
@@ -109,6 +125,8 @@ def summarize_generation_review(results: list[dict]) -> dict:
         "avg_prompt_words": avg("prompt_words"),
         "avg_generation_words": avg("generation_words"),
         "avg_unique_word_ratio": avg("unique_word_ratio"),
+        "avg_prompt_overlap_rate": avg("prompt_overlap_rate"),
+        "prompt_echoes": sum(1 for row in rows if row["starts_with_prompt"]),
         "max_repeated_bigram_rate": max(
             float(row["repeated_bigram_rate"]) for row in rows
         ),
