@@ -172,6 +172,15 @@ def test_dataset_profile_reports_supervised_ratio() -> None:
     assert profile["supervised_token_ratio"] == 0.6
 
 
+def test_dataset_profile_rejects_misaligned_labels() -> None:
+    with pytest.raises(ValueError, match="different input and label lengths"):
+        tokenized_dataset_profile(
+            [
+                {"input_ids": [1, 2, 3], "labels": [-100, 2]},
+            ]
+        )
+
+
 def test_supervision_density_bucket_tracks_loss_signal() -> None:
     assert supervision_density_bucket(input_tokens=32, supervised_tokens=0) == "empty"
     assert supervision_density_bucket(input_tokens=100, supervised_tokens=2) == "under_5_pct"
@@ -195,6 +204,11 @@ def test_dataset_profile_reports_density_buckets() -> None:
         [32, 100, 100, 100],
         [0, 2, 12, 45],
     )
+
+
+def test_supervision_density_counts_requires_aligned_lengths() -> None:
+    with pytest.raises(ValueError, match="same length"):
+        supervision_density_counts([32, 64], [4])
 
 
 def test_profile_validation_rejects_empty_split() -> None:

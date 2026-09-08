@@ -101,6 +101,8 @@ def supervision_density_counts(
     input_lengths: list[int],
     supervised_lengths: list[int],
 ) -> dict[str, int]:
+    if len(input_lengths) != len(supervised_lengths):
+        raise ValueError("input_lengths and supervised_lengths must have the same length")
     counts = dict.fromkeys(SUPERVISION_DENSITY_BUCKETS, 0)
     for input_tokens, supervised_tokens in zip(input_lengths, supervised_lengths):
         bucket = supervision_density_bucket(input_tokens, supervised_tokens)
@@ -155,6 +157,12 @@ def tokenized_dataset_profile(dataset: Any) -> dict[str, Any]:
                 0,
             ),
         }
+
+    for index, row in enumerate(rows):
+        if len(row["input_ids"]) != len(row["labels"]):
+            raise ValueError(
+                f"tokenized row {index} has different input and label lengths"
+            )
 
     input_lengths = [len(row["input_ids"]) for row in rows]
     supervised_lengths = [
