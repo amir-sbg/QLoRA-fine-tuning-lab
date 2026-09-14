@@ -145,6 +145,18 @@ def test_tokenize_masks_prompt_tokens() -> None:
     assert encoded["labels"][-1] != -100
 
 
+def test_tokenize_keeps_response_when_prompt_is_long() -> None:
+    encoded = tokenize_example(
+        {"instruction": "one two three four five six seven", "response": "answer here"},
+        ToyTokenizer(),
+        max_seq_length=8,
+    )
+
+    assert len(encoded["input_ids"]) == 8
+    assert encoded["labels"][-1] != -100
+    assert sum(label != -100 for label in encoded["labels"]) == 2
+
+
 def test_supervised_collator_preserves_label_mask() -> None:
     tokenizer = ToyTokenizer()
     collator = SupervisedDataCollator(tokenizer)

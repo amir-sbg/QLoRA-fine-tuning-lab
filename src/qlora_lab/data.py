@@ -65,25 +65,30 @@ def tokenize_example(
     max_seq_length: int,
 ) -> dict[str, list[int]]:
     prompt, text = format_training_text(example, eos_token=tokenizer.eos_token or "")
-    encoded = tokenizer(
-        text,
-        max_length=max_seq_length,
-        truncation=True,
-        add_special_tokens=False,
-    )
     prompt_ids = tokenizer(
         prompt,
+        max_length=max_seq_length,
+        truncation=False,
+        add_special_tokens=False,
+    )["input_ids"]
+    response = text[len(prompt) :]
+    response_ids = tokenizer(
+        response,
         max_length=max_seq_length,
         truncation=True,
         add_special_tokens=False,
     )["input_ids"]
-    labels = list(encoded["input_ids"])
-    prompt_length = min(len(prompt_ids), len(labels))
-    labels[:prompt_length] = [-100] * prompt_length
-    if labels and all(value == -100 for value in labels):
-        labels[-1] = encoded["input_ids"][-1]
-    encoded["labels"] = labels
-    return encoded
+
+    response_ids = response_ids[:max_seq_length]
+    prompt_budget = max_seq_length - len(response_ids)
+    prompt_ids = prompt_ids[-prompt_budget:] if prompt_budget else []
+    input_ids = list(prompt_ids) + list(response_ids)
+    labels = [-100] * len(prompt_ids) + list(response_ids)
+    return {
+        "input_ids": input_ids,
+        "attention_mask": [1] * len(input_ids),
+        "labels": labels,
+    }
 
 
 def supervision_density_bucket(input_tokens: int, supervised_tokens: int) -> str:
