@@ -74,8 +74,8 @@ def test_generation_results_can_be_saved_as_csv(tmp_path: Path) -> None:
     )
 
     assert output.read_text().splitlines() == [
-        "model_name,adapter_dir,prompt,generation",
-        "tiny,adapter,Explain LoRA.,Low-rank adapters.",
+        "model_name,adapter_dir,prompt,generation,generation_words,empty_generation,prompt_overlap_rate,repeated_bigram_rate",
+        "tiny,adapter,Explain LoRA.,Low-rank adapters.,3,False,0.0,0.0",
     ]
 
 

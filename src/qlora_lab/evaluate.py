@@ -136,12 +136,33 @@ def summarize_generation_review(results: list[dict]) -> dict:
 
 def save_generation_csv(results: list[dict], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["model_name", "adapter_dir", "prompt", "generation"]
+    fieldnames = [
+        "model_name",
+        "adapter_dir",
+        "prompt",
+        "generation",
+        "generation_words",
+        "empty_generation",
+        "prompt_overlap_rate",
+        "repeated_bigram_rate",
+    ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for result in results:
-            writer.writerow({key: result.get(key, "") for key in fieldnames})
+            review = generation_review_row(result)
+            writer.writerow(
+                {
+                    "model_name": result.get("model_name", ""),
+                    "adapter_dir": result.get("adapter_dir", ""),
+                    "prompt": result.get("prompt", ""),
+                    "generation": result.get("generation", ""),
+                    "generation_words": review["generation_words"],
+                    "empty_generation": review["empty_generation"],
+                    "prompt_overlap_rate": review["prompt_overlap_rate"],
+                    "repeated_bigram_rate": review["repeated_bigram_rate"],
+                }
+            )
 
 
 def generate_from_adapter(
