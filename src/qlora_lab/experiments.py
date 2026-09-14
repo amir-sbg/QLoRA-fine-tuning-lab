@@ -86,6 +86,11 @@ def rank_sweep_report(
     ranks = list(ranks)
     if not ranks:
         raise ValueError("ranks must not be empty")
+    if any(rank < 1 for rank in ranks):
+        raise ValueError("ranks must be positive")
+    if len(set(ranks)) != len(ranks):
+        raise ValueError("ranks must be unique")
+    ranks.sort()
     if base_parameters < 1:
         raise ValueError("base_parameters must be positive")
     if alpha_multiplier < 1:

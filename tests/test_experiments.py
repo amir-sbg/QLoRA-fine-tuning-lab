@@ -33,6 +33,18 @@ def test_rank_sweep_grows_linearly_with_rank() -> None:
     assert rows[0]["scale"] == 2.0
 
 
+def test_rank_sweep_orders_candidate_ranks() -> None:
+    report = rank_sweep_report(
+        ranks=[16, 4, 8],
+        hidden_size=16,
+        intermediate_size=32,
+        layers=1,
+        base_parameters=10_000,
+    )
+
+    assert [row["rank"] for row in report["rank_sweep"]] == [4, 8, 16]
+
+
 def test_adapter_training_memory_includes_optimizer_state() -> None:
     memory = adapter_training_memory_mb(1024)
 
@@ -100,3 +112,10 @@ def test_rank_sweep_rejects_bad_base_size() -> None:
             layers=2,
             base_parameters=0,
         )
+
+
+def test_rank_sweep_rejects_duplicate_or_invalid_ranks() -> None:
+    with pytest.raises(ValueError, match="unique"):
+        rank_sweep_report([4, 4], 16, 32, 2, 10_000)
+    with pytest.raises(ValueError, match="positive"):
+        rank_sweep_report([0, 4], 16, 32, 2, 10_000)
