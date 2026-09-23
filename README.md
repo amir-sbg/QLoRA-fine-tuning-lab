@@ -1,6 +1,6 @@
 # QLoRA Fine-Tuning Lab
 
-A compact fine-tuning project for adapting causal language models with QLoRA. The code covers dataset formatting, prompt/label masking, 4-bit model loading, LoRA adapter training, lightweight generation evaluation, and small rank experiments that make the parameter and memory tradeoffs visible.
+A compact fine-tuning project for adapting causal language models with QLoRA. The code covers dataset formatting, prompt/label masking, 4-bit model loading, LoRA adapter training, generation review, preflight checks, and small rank experiments that make the parameter and memory tradeoffs visible.
 
 ## Why QLoRA
 
@@ -24,7 +24,7 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 6. Train only the adapter weights and save the adapter checkpoint.
 7. Save a token and supervision-density profile so prompt masking and truncation are easy to inspect.
 8. Run a preflight report before using GPU time.
-9. Run a rank sweep report to compare adapter size, scale, and training memory.
+9. Run a rank sweep report to compare adapter size, scale, efficiency, and training memory.
 
 ## Setup
 
@@ -54,7 +54,7 @@ python -m qlora_lab.train \
   --gradient-accumulation-steps 8
 ```
 
-Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`. The training command also checks that truncation has not removed almost all supervised response tokens before starting the Trainer, then records how dense the response-side loss signal is across the split.
+Adapters are saved under `artifacts/qlora-adapter/`. Training metadata is written to `reports/train_summary.json`, and token statistics are written to `reports/data_profile.json`. The data profile records supervision density and sequence-length percentiles, which makes it easier to spot prompt masking or truncation problems before trusting a run.
 
 Interrupted runs can be resumed from a Trainer checkpoint:
 
@@ -73,7 +73,7 @@ python -m qlora_lab.preflight \
   --gradient-accumulation-steps 8
 ```
 
-The report includes CUDA availability, effective batch size, estimated update and warmup steps, a small learning-rate preview, a max-token budget, 4-bit base-weight memory, LoRA scale, optimizer settings, and basic warnings that are useful before starting a run.
+The report includes CUDA availability, effective batch size, estimated update and warmup steps, a small learning-rate preview, token budget, 4-bit base-weight memory, LoRA scale, optimizer settings, data caps, and warnings for thin eval or smoke-test-sized runs.
 
 ## Rank Experiment
 
@@ -89,7 +89,7 @@ python -m qlora_lab.experiments \
   --csv-output reports/rank_sweep.csv
 ```
 
-This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated adapter gradient and optimizer-state memory, estimated 4-bit backbone memory, whether each rank fits an optional adapter-training-memory budget, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
+This writes a JSON report with LoRA parameter counts, FP16 adapter memory, estimated adapter gradient and optimizer-state memory, parameter efficiency per training MB, estimated 4-bit backbone memory, whether each rank fits an optional adapter-training-memory budget, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
 
 ## Notebooks
 
@@ -113,7 +113,7 @@ python -m qlora_lab.evaluate \
   --csv-output reports/generations.csv
 ```
 
-The evaluator loads the saved adapter and writes generated samples to `reports/generations.json` with a small review summary for empty outputs, response length, prompt overlap, vocabulary diversity, and repeated bigrams. Use `--csv-output` when a flat review table is more convenient. It uses deterministic generation by default; pass `--do-sample --temperature 0.8 --top-p 0.9` when sampling is useful for qualitative checks.
+The evaluator loads the saved adapter and writes generated samples to `reports/generations.json` with a small review summary for empty outputs, response length, prompt overlap, vocabulary diversity, repeated bigrams, and instruction-header spillover. Use `--csv-output` when a flat review table is more convenient. It uses deterministic generation by default; pass `--do-sample --temperature 0.8 --top-p 0.9` when sampling is useful for qualitative checks.
 
 ## Repository Layout
 
@@ -125,15 +125,8 @@ src/qlora_lab/
 ├── quantization.py  # NF4 reference implementation
 ├── targets.py       # adapter target-module inspection
 ├── preflight.py     # runtime and training sanity checks
+├── reporting.py     # compact run cards for comparing experiments
 ├── experiments.py   # rank and memory comparison report
 ├── train.py         # command-line training pipeline
 └── evaluate.py      # adapter generation script
 ```
-
-## Suggested Repo Name
-
-`QLoRA Fine-Tuning Lab`
-
-## About
-
-Reproducible QLoRA fine-tuning pipeline for 4-bit LLM adaptation, with NF4 quantization math, LoRA rank experiments, prompt masking, adapter training, and lightweight generation evaluation.
