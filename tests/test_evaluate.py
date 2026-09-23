@@ -4,6 +4,7 @@ import pytest
 
 from qlora_lab.evaluate import (
     build_generation_kwargs,
+    clean_generation_text,
     load_prompts,
     prompt_overlap_rate,
     repeated_bigram_rate,
@@ -87,6 +88,13 @@ def test_repeated_bigram_rate_flags_looping_text() -> None:
 def test_prompt_overlap_rate_tracks_echoed_instruction_terms() -> None:
     assert prompt_overlap_rate("Explain LoRA adapters", "LoRA adapters help tuning") == 0.5
     assert prompt_overlap_rate("Explain LoRA", "") == 0.0
+
+
+def test_clean_generation_text_removes_prompt_and_next_header() -> None:
+    prompt = "### Instruction:\nExplain QLoRA.\n\n### Response:\n"
+    decoded = prompt + "QLoRA trains compact adapters.\n### Instruction:\nNext task"
+
+    assert clean_generation_text(decoded, prompt) == "QLoRA trains compact adapters."
 
 
 def test_generation_review_summarizes_outputs() -> None:

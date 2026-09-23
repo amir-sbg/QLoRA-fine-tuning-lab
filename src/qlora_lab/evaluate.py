@@ -11,6 +11,7 @@ from .config import QLoRAConfig, save_json
 from .model import load_tokenizer
 
 WORD_RE = re.compile(r"[\w']+", re.UNICODE)
+DEFAULT_STOP_MARKERS = ("\n### Instruction:", "\n### Context:", "\n### Response:")
 
 
 def load_prompts(prompt: str | None, prompt_file: Path | None) -> list[str]:
@@ -75,6 +76,19 @@ def prompt_overlap_rate(prompt: str, generation: str) -> float:
     if not prompt_terms:
         return 0.0
     return round(len(prompt_terms & generation_terms) / len(generation_terms), 4)
+
+
+def clean_generation_text(
+    decoded_text: str,
+    prompt: str,
+    stop_markers: tuple[str, ...] = DEFAULT_STOP_MARKERS,
+) -> str:
+    text = decoded_text[len(prompt) :] if decoded_text.startswith(prompt) else decoded_text
+    for marker in stop_markers:
+        position = text.find(marker)
+        if position >= 0:
+            text = text[:position]
+    return text.strip()
 
 
 def generation_review_row(result: dict) -> dict[str, float | int | bool]:
@@ -204,7 +218,7 @@ def generate_from_adapter(
         "model_name": config.model_name,
         "adapter_dir": str(adapter_dir),
         "prompt": prompt,
-        "generation": text[len(prompt) :].strip() if text.startswith(prompt) else text,
+        "generation": clean_generation_text(text, prompt),
     }
 
 
