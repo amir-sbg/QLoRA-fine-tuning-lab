@@ -7,6 +7,7 @@ from qlora_lab.data import (
     extract_instruction_fields,
     has_training_signal,
     normalize_text,
+    sequence_length_percentiles,
     split_and_limit_dataset,
     supervision_density_bucket,
     supervision_density_counts,
@@ -221,6 +222,14 @@ def test_dataset_profile_reports_density_buckets() -> None:
 def test_supervision_density_counts_requires_aligned_lengths() -> None:
     with pytest.raises(ValueError, match="same length"):
         supervision_density_counts([32, 64], [4])
+
+
+def test_sequence_length_percentiles_use_nearest_rank() -> None:
+    assert sequence_length_percentiles([8, 32, 16, 64]) == {
+        "p50": 16,
+        "p90": 64,
+        "p95": 64,
+    }
 
 
 def test_profile_validation_rejects_empty_split() -> None:

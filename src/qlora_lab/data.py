@@ -115,6 +115,17 @@ def supervision_density_counts(
     return counts
 
 
+def sequence_length_percentiles(lengths: list[int]) -> dict[str, int]:
+    if not lengths:
+        return {"p50": 0, "p90": 0, "p95": 0}
+    ordered = sorted(lengths)
+    return {
+        "p50": _nearest_rank(ordered, 0.50),
+        "p90": _nearest_rank(ordered, 0.90),
+        "p95": _nearest_rank(ordered, 0.95),
+    }
+
+
 @dataclass
 class SupervisedDataCollator:
     tokenizer: Any
@@ -179,6 +190,7 @@ def tokenized_dataset_profile(dataset: Any) -> dict[str, Any]:
         "examples": len(rows),
         "avg_input_tokens": round(sum(input_lengths) / len(rows), 3),
         "max_input_tokens": max(input_lengths),
+        "input_length_percentiles": sequence_length_percentiles(input_lengths),
         "avg_supervised_tokens": round(sum(supervised_lengths) / len(rows), 3),
         "min_supervised_tokens": min(supervised_lengths),
         "max_supervised_tokens": max(supervised_lengths),
@@ -267,3 +279,10 @@ def prepare_datasets(config: QLoRAConfig, tokenizer: Any) -> dict[str, Any]:
         desc="Tokenizing eval examples",
     )
     return {"train": train_dataset, "eval": eval_dataset}
+
+
+def _nearest_rank(values: list[int], percentile: float) -> int:
+    if not 0 < percentile <= 1:
+        raise ValueError("percentile must be in (0, 1]")
+    index = max(round(percentile * len(values) + 0.5) - 1, 0)
+    return values[min(index, len(values) - 1)]
