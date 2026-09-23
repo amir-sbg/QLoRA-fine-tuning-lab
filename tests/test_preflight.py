@@ -51,10 +51,18 @@ def test_preflight_report_includes_memory_estimate() -> None:
 
     assert report["qlora"]["lora_scale"] == 2.0
     assert report["optimizer"]["learning_rate"] == QLoRAConfig.learning_rate
+    assert report["data_plan"]["max_eval_samples"] == QLoRAConfig.max_eval_samples
     assert report["steps"]["train_examples"] == 100
     assert report["token_budget"]["max_seq_length"] == QLoRAConfig.max_seq_length
     assert report["lr_preview"][0]["step"] == 1
     assert report["memory_estimate"]["base_parameters"] == 10_000
+    assert any("Token exposure is low" in warning for warning in report["warnings"])
+
+
+def test_preflight_warns_about_small_eval_cap() -> None:
+    report = build_preflight_report(QLoRAConfig(max_eval_samples=16))
+
+    assert any("Evaluation cap is small" in warning for warning in report["warnings"])
 
 
 def test_learning_rate_preview_tracks_warmup_and_decay() -> None:

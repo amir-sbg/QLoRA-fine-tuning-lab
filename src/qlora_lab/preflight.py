@@ -131,6 +131,8 @@ def preflight_warnings(config: QLoRAConfig, runtime: dict[str, Any]) -> list[str
         warnings.append("Large sequence length with batch_size > 1 can make activation memory the bottleneck.")
     if config.lora_alpha / config.lora_r > 4:
         warnings.append("LoRA scale is high; watch early training loss for unstable updates.")
+    if config.max_eval_samples is not None and config.max_eval_samples < 64:
+        warnings.append("Evaluation cap is small; generation and loss estimates may move around a lot.")
     return warnings
 
 
@@ -167,6 +169,12 @@ def build_preflight_report(
             "warmup_ratio": config.warmup_ratio,
             "max_grad_norm": config.max_grad_norm,
         },
+        "data_plan": {
+            "dataset_split": config.dataset_split,
+            "eval_size": config.eval_size,
+            "max_train_samples": config.max_train_samples,
+            "max_eval_samples": config.max_eval_samples,
+        },
         "warnings": preflight_warnings(config, runtime),
     }
     if train_examples is not None:
@@ -180,6 +188,10 @@ def build_preflight_report(
         if report["steps"]["estimated_total_steps"] < 10:
             report["warnings"].append(
                 "Very short training plan; evaluation metrics will be noisy."
+            )
+        if report["token_budget"]["max_seen_tokens"] < 250_000:
+            report["warnings"].append(
+                "Token exposure is low for instruction tuning; treat the run as a smoke test."
             )
     if base_parameters is not None:
         report["memory_estimate"] = {
