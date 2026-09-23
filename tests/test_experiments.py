@@ -1,6 +1,7 @@
 import pytest
 
 from qlora_lab.experiments import (
+    adapter_params_per_training_mb,
     adapter_training_memory_mb,
     decoder_block_shapes,
     lora_parameter_count,
@@ -59,6 +60,10 @@ def test_adapter_training_memory_includes_optimizer_state() -> None:
     assert memory["adapter_training_memory_mb"] > memory["adapter_parameter_memory_mb"]
 
 
+def test_adapter_efficiency_is_reported_per_training_mb() -> None:
+    assert adapter_params_per_training_mb(4096) > 0
+
+
 def test_rank_sweep_marks_ranks_under_memory_budget() -> None:
     report = rank_sweep_report(
         ranks=[4, 8, 16],
@@ -71,6 +76,7 @@ def test_rank_sweep_marks_ranks_under_memory_budget() -> None:
     rows = report["rank_sweep"]
 
     assert any(row["fits_adapter_budget"] for row in rows)
+    assert rows[0]["adapter_params_per_training_mb"] > 0
     assert rows[-1]["fits_adapter_budget"] is False
     assert report["assumptions"]["largest_rank_under_budget"] in {4, 8}
 

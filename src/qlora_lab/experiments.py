@@ -74,6 +74,11 @@ def adapter_training_memory_mb(
     }
 
 
+def adapter_params_per_training_mb(adapter_parameters: int) -> float:
+    memory = adapter_training_memory_mb(adapter_parameters)
+    return round(adapter_parameters / max(memory["adapter_training_memory_mb"], 1e-9), 3)
+
+
 def rank_sweep_report(
     ranks: Iterable[int],
     hidden_size: int,
@@ -110,6 +115,7 @@ def rank_sweep_report(
                 "scale": alpha / rank,
                 "adapter_parameters": adapter_parameters,
                 "adapter_memory_mb_fp16": round(adapter_parameters * 2 / 1_048_576, 3),
+                "adapter_params_per_training_mb": adapter_params_per_training_mb(adapter_parameters),
                 **memory,
                 "fits_adapter_budget": (
                     memory["adapter_training_memory_mb"] <= adapter_memory_budget_mb
