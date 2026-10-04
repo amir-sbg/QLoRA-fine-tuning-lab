@@ -87,6 +87,7 @@ def rank_sweep_report(
     base_parameters: int,
     alpha_multiplier: int = 2,
     adapter_memory_budget_mb: float | None = None,
+    target_modules: Iterable[str] | None = None,
 ) -> dict:
     ranks = list(ranks)
     if not ranks:
@@ -101,7 +102,19 @@ def rank_sweep_report(
     if alpha_multiplier < 1:
         raise ValueError("alpha_multiplier must be positive")
 
-    shapes = decoder_block_shapes(hidden_size, intermediate_size, layers)
+    all_shapes = decoder_block_shapes(hidden_size, intermediate_size, layers)
+    available_modules = sorted({shape.name.split(".")[-1] for shape in all_shapes})
+    selected_modules = available_modules if target_modules is None else sorted(set(target_modules))
+    unknown_modules = sorted(set(selected_modules).difference(available_modules))
+    if unknown_modules:
+        raise ValueError(f"unknown target modules: {unknown_modules}")
+    if not selected_modules:
+        raise ValueError("target_modules must not be empty")
+    shapes = [
+        shape
+        for shape in all_shapes
+        if shape.name.split(".")[-1] in selected_modules
+    ]
     base_4bit_bytes = estimate_4bit_storage_bytes(base_parameters)
     rows = []
     for rank in ranks:
@@ -142,7 +155,7 @@ def rank_sweep_report(
             "base_4bit_memory_mb": round(base_4bit_bytes / 1_048_576, 3),
             "adapter_memory_budget_mb": adapter_memory_budget_mb,
             "largest_rank_under_budget": max(ranks_under_budget) if ranks_under_budget else None,
-            "target_modules": sorted({shape.name.split(".")[-1] for shape in shapes}),
+            "target_modules": selected_modules,
         },
         "rank_sweep": rows,
     }
@@ -181,6 +194,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--layers", type=int, default=24)
     parser.add_argument("--base-parameters", type=int, default=1_500_000_000)
     parser.add_argument("--adapter-memory-budget-mb", type=float)
+    parser.add_argument(
+        "--target-modules",
+        nargs="+",
+        default=None,
+        help="projection names to include, for example q_proj v_proj",
+    )
     parser.add_argument("--output", type=Path, default=Path("reports/rank_sweep.json"))
     parser.add_argument("--csv-output", type=Path)
     return parser
@@ -195,6 +214,7 @@ def main() -> None:
         layers=args.layers,
         base_parameters=args.base_parameters,
         adapter_memory_budget_mb=args.adapter_memory_budget_mb,
+        target_modules=args.target_modules,
     )
     save_json(report, args.output)
     print(f"wrote {args.output}")

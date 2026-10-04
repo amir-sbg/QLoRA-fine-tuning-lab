@@ -81,6 +81,28 @@ def test_rank_sweep_marks_ranks_under_memory_budget() -> None:
     assert report["assumptions"]["largest_rank_under_budget"] in {4, 8}
 
 
+def test_rank_sweep_can_limit_adapter_target_modules() -> None:
+    all_modules = rank_sweep_report([8], 64, 128, 2, 1_000_000)
+    attention_only = rank_sweep_report(
+        [8],
+        64,
+        128,
+        2,
+        1_000_000,
+        target_modules=("q_proj", "v_proj"),
+    )
+
+    assert attention_only["assumptions"]["target_modules"] == ["q_proj", "v_proj"]
+    assert attention_only["rank_sweep"][0]["adapter_parameters"] < all_modules["rank_sweep"][0][
+        "adapter_parameters"
+    ]
+
+
+def test_rank_sweep_rejects_unknown_target_module() -> None:
+    with pytest.raises(ValueError, match="unknown target"):
+        rank_sweep_report([8], 64, 128, 2, 1_000_000, target_modules=("missing_proj",))
+
+
 def test_rank_sweep_can_be_saved_as_csv(tmp_path) -> None:
     report = rank_sweep_report(
         ranks=[4],
