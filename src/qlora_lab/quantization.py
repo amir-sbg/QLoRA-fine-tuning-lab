@@ -48,6 +48,8 @@ def quantize_nf4(values: torch.Tensor, block_size: int = 64) -> NF4Tensor:
         raise ValueError("block_size must be positive")
     if values.numel() == 0:
         raise ValueError("values must not be empty")
+    if not torch.isfinite(values).all():
+        raise ValueError("values must contain only finite numbers")
 
     flat = values.detach().to(torch.float32).reshape(-1)
     pad = (-flat.numel()) % block_size
@@ -70,8 +72,26 @@ def quantize_nf4(values: torch.Tensor, block_size: int = 64) -> NF4Tensor:
 
 
 def dequantize_nf4(tensor: NF4Tensor) -> torch.Tensor:
+    if tensor.block_size < 1:
+        raise ValueError("block_size must be positive")
     if tensor.codes.numel() % tensor.block_size != 0:
         raise ValueError("codes length must be divisible by block_size")
+    expected_blocks = tensor.codes.numel() // tensor.block_size
+    if tensor.scales.numel() != expected_blocks:
+        raise ValueError("scale count must match the number of quantization blocks")
+    if tensor.numel < 1 or tensor.numel > tensor.codes.numel():
+        raise ValueError("numel must describe a non-empty unpadded tensor")
+    shape_numel = 1
+    for dimension in tensor.original_shape:
+        shape_numel *= dimension
+    if shape_numel != tensor.numel:
+        raise ValueError("original_shape does not match numel")
+    if tensor.codes.numel() and int(tensor.codes.max()) > 15:
+        raise ValueError("NF4 codes must be between 0 and 15")
+    if not torch.isfinite(tensor.scales).all() or torch.any(tensor.scales <= 0):
+        raise ValueError("NF4 scales must be positive and finite")
+    if tensor.codes.device != tensor.scales.device:
+        raise ValueError("codes and scales must be on the same device")
     codebook = nf4_codebook(tensor.codes.device)
     blocks = codebook[tensor.codes.long()].reshape(-1, tensor.block_size)
     values = blocks * tensor.scales[:, None]

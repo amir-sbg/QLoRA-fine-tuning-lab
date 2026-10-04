@@ -1,4 +1,6 @@
 import torch
+import pytest
+from dataclasses import replace
 
 from qlora_lab.quantization import (
     dequantize_nf4,
@@ -41,3 +43,17 @@ def test_nf4_error_report_exposes_quality_and_storage() -> None:
     assert report["mse"] >= 0
     assert report["nf4_bytes"] < report["fp16_bytes"]
     assert report["compression_ratio_vs_fp16"] > 1
+
+
+def test_nf4_quantizer_rejects_non_finite_weights() -> None:
+    with pytest.raises(ValueError, match="finite"):
+        quantize_nf4(torch.tensor([0.0, float("nan")]))
+
+
+def test_nf4_dequantizer_validates_tensor_metadata() -> None:
+    quantized = quantize_nf4(torch.arange(8, dtype=torch.float32), block_size=4)
+
+    with pytest.raises(ValueError, match="scale count"):
+        dequantize_nf4(replace(quantized, scales=quantized.scales[:1]))
+    with pytest.raises(ValueError, match="between 0 and 15"):
+        dequantize_nf4(replace(quantized, codes=torch.full_like(quantized.codes, 16)))
