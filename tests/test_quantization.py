@@ -43,6 +43,10 @@ def test_nf4_error_report_exposes_quality_and_storage() -> None:
     assert report["mse"] >= 0
     assert report["nf4_bytes"] < report["fp16_bytes"]
     assert report["compression_ratio_vs_fp16"] > 1
+    assert report["relative_l2_error"] >= 0
+    assert report["sqnr_db"] > 0
+    assert 0 <= report["codebook_edge_fraction"] <= 1
+    assert report["max_block_scale"] >= report["mean_block_scale"]
 
 
 def test_nf4_quantizer_rejects_non_finite_weights() -> None:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil
+from math import ceil, log10
 
 import torch
 
@@ -116,14 +116,25 @@ def nf4_error_report(values: torch.Tensor, block_size: int = 64) -> dict[str, fl
     quantized = quantize_nf4(values, block_size=block_size)
     restored = dequantize_nf4(quantized)
     error = (restored - values.detach().to(torch.float32)).reshape(-1)
+    source = values.detach().to(torch.float32).reshape(-1)
+    noise_power = float((error**2).mean().item())
+    signal_power = float((source**2).mean().item())
+    relative_l2 = float(torch.linalg.vector_norm(error) / torch.linalg.vector_norm(source).clamp_min(1e-12))
     fp16_bytes = values.numel() * 2
     nf4_bytes = estimate_4bit_storage_bytes(values.numel(), block_size=block_size)
     return {
         "num_values": int(values.numel()),
         "block_size": int(block_size),
-        "mse": float((error**2).mean().item()),
+        "mse": noise_power,
         "mae": float(error.abs().mean().item()),
         "max_abs_error": float(error.abs().max().item()),
+        "relative_l2_error": relative_l2,
+        "sqnr_db": 10.0 * log10(max(signal_power, 1e-24) / max(noise_power, 1e-24)),
+        "codebook_edge_fraction": float(
+            torch.mean(((quantized.codes == 0) | (quantized.codes == 15)).float()).item()
+        ),
+        "mean_block_scale": float(quantized.scales.mean().item()),
+        "max_block_scale": float(quantized.scales.max().item()),
         "fp16_bytes": int(fp16_bytes),
         "nf4_bytes": int(nf4_bytes),
         "compression_ratio_vs_fp16": round(fp16_bytes / nf4_bytes, 4),
