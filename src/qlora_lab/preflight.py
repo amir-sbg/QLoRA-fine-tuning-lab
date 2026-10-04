@@ -56,6 +56,33 @@ def estimate_token_budget(
     }
 
 
+def estimate_hidden_state_memory_mb(
+    batch_size: int,
+    sequence_length: int,
+    hidden_size: int,
+    layers: int,
+    bytes_per_value: int = 2,
+) -> dict[str, float | int]:
+    if min(batch_size, sequence_length, hidden_size, layers, bytes_per_value) < 1:
+        raise ValueError("activation memory dimensions must be positive")
+    per_layer_bytes = batch_size * sequence_length * hidden_size * bytes_per_value
+    checkpoint_count = math.ceil(math.sqrt(layers))
+    return {
+        "batch_size": batch_size,
+        "sequence_length": sequence_length,
+        "hidden_size": hidden_size,
+        "layers": layers,
+        "bytes_per_value": bytes_per_value,
+        "hidden_state_mb_per_layer": round(per_layer_bytes / 1_048_576, 3),
+        "uncheckpointed_hidden_state_mb": round(per_layer_bytes * layers / 1_048_576, 3),
+        "checkpointed_hidden_state_mb": round(
+            per_layer_bytes * checkpoint_count / 1_048_576,
+            3,
+        ),
+        "estimated_checkpoint_count": checkpoint_count,
+    }
+
+
 def learning_rate_preview(
     total_steps: int,
     warmup_steps: int,
@@ -141,7 +168,11 @@ def build_preflight_report(
     train_examples: int | None = None,
     base_parameters: int | None = None,
     world_size: int = 1,
+    hidden_size: int | None = None,
+    layers: int | None = None,
 ) -> dict[str, Any]:
+    if (hidden_size is None) != (layers is None):
+        raise ValueError("hidden_size and layers must be provided together")
     runtime = runtime_summary()
     report: dict[str, Any] = {
         "model_name": config.model_name,
@@ -201,6 +232,13 @@ def build_preflight_report(
                 3,
             ),
         }
+    if hidden_size is not None and layers is not None:
+        report["activation_memory_estimate"] = estimate_hidden_state_memory_mb(
+            config.batch_size,
+            config.max_seq_length,
+            hidden_size,
+            layers,
+        )
     return report
 
 
@@ -224,6 +262,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--train-examples", type=int)
     parser.add_argument("--base-parameters", type=int)
     parser.add_argument("--world-size", type=int, default=1)
+    parser.add_argument("--hidden-size", type=int)
+    parser.add_argument("--layers", type=int)
     parser.add_argument("--output", type=Path, default=Path("reports/preflight.json"))
     return parser
 
@@ -248,6 +288,8 @@ def main() -> None:
         train_examples=args.train_examples,
         base_parameters=args.base_parameters,
         world_size=args.world_size,
+        hidden_size=args.hidden_size,
+        layers=args.layers,
     )
     save_json(report, args.output)
     print(f"wrote {args.output}")

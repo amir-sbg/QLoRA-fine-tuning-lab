@@ -5,6 +5,7 @@ from qlora_lab.preflight import (
     build_preflight_report,
     effective_batch_size,
     estimate_token_budget,
+    estimate_hidden_state_memory_mb,
     estimate_update_steps,
     learning_rate_preview,
 )
@@ -42,11 +43,25 @@ def test_token_budget_uses_effective_batch_and_context_length() -> None:
     assert budget["warmup_seen_tokens"] == 2048
 
 
+def test_hidden_state_memory_estimate_reflects_checkpointing() -> None:
+    estimate = estimate_hidden_state_memory_mb(
+        batch_size=2,
+        sequence_length=512,
+        hidden_size=1024,
+        layers=16,
+    )
+
+    assert estimate["estimated_checkpoint_count"] == 4
+    assert estimate["checkpointed_hidden_state_mb"] < estimate["uncheckpointed_hidden_state_mb"]
+
+
 def test_preflight_report_includes_memory_estimate() -> None:
     report = build_preflight_report(
         QLoRAConfig(lora_r=8, lora_alpha=16),
         train_examples=100,
         base_parameters=10_000,
+        hidden_size=128,
+        layers=4,
     )
 
     assert report["qlora"]["lora_scale"] == 2.0
@@ -56,6 +71,7 @@ def test_preflight_report_includes_memory_estimate() -> None:
     assert report["token_budget"]["max_seq_length"] == QLoRAConfig.max_seq_length
     assert report["lr_preview"][0]["step"] == 1
     assert report["memory_estimate"]["base_parameters"] == 10_000
+    assert report["activation_memory_estimate"]["layers"] == 4
     assert any("Token exposure is low" in warning for warning in report["warnings"])
 
 

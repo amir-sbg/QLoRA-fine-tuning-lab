@@ -69,11 +69,13 @@ python -m qlora_lab.train \
 python -m qlora_lab.preflight \
   --train-examples 1000 \
   --base-parameters 500000000 \
+  --hidden-size 896 \
+  --layers 24 \
   --batch-size 2 \
   --gradient-accumulation-steps 8
 ```
 
-The report includes CUDA availability, effective batch size, estimated update and warmup steps, a small learning-rate preview, token budget, 4-bit base-weight memory, LoRA scale, optimizer settings, data caps, and warnings for thin eval or smoke-test-sized runs.
+The report includes CUDA availability, effective batch size, estimated update and warmup steps, a small learning-rate preview, token budget, 4-bit base-weight memory, hidden-state activation estimates with and without checkpointing, LoRA scale, optimizer settings, data caps, and warnings for thin eval or smoke-test-sized runs.
 
 ## Rank Experiment
 
