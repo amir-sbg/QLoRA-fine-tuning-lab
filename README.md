@@ -12,6 +12,8 @@ W_eff = dequant_4bit(W_q) + (alpha / r) * B @ A
 
 `W_q` is the quantized base weight, while `A` and `B` are the trainable LoRA matrices. Increasing rank `r` gives the adapter more capacity, but it also increases memory and optimizer state. This project keeps those choices explicit in the config and in the experiment report.
 
+`qlora_lab.adapter_math.lora_update_diagnostics` inspects a learned `B @ A` update directly, reporting Frobenius and spectral norms, numerical and stable rank, and the update size relative to the frozen base weight. This helps distinguish configured rank from the effective rank actually used after training.
+
 The training path uses the normal Hugging Face stack: `transformers`, `datasets`, `peft`, `accelerate`, and `bitsandbytes`. The `qlora_lab.quantization` module includes a small NF4 block quantizer with reconstruction error, relative L2 error, SQNR, codebook-edge usage, and storage estimates, so the 4-bit tradeoff is testable without needing a GPU.
 
 ## Project Flow
@@ -126,6 +128,7 @@ src/qlora_lab/
 ├── data.py          # instruction formatting and label masking
 ├── model.py         # 4-bit base model and PEFT adapter setup
 ├── quantization.py  # NF4 reference implementation
+├── adapter_math.py  # LoRA update norm and effective-rank diagnostics
 ├── targets.py       # adapter target-module inspection
 ├── preflight.py     # runtime and training sanity checks
 ├── reporting.py     # compact run cards for comparing experiments
