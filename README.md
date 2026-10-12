@@ -16,7 +16,7 @@ Rank-stabilized LoRA is available with `--use-rslora`. It uses `alpha / sqrt(r)`
 
 `qlora_lab.adapter_math` inspects a learned `B @ A` update and can merge it into a base weight for numerical parity checks. The diagnostics report Frobenius and spectral norms, numerical and stable rank, and update size relative to the frozen weight.
 
-The training path uses the normal Hugging Face stack: `transformers`, `datasets`, `peft`, `accelerate`, and `bitsandbytes`. The `qlora_lab.quantization` module includes a small NF4 block quantizer with reconstruction error, relative L2 error, SQNR, codebook-edge usage, and storage estimates, so the 4-bit tradeoff is testable without needing a GPU.
+The training path uses the normal Hugging Face stack: `transformers`, `datasets`, `peft`, `accelerate`, and `bitsandbytes`. The `qlora_lab.quantization` module includes a small NF4 block quantizer with reconstruction error, SQNR, codebook-edge usage, storage estimates, and block-level error percentiles for locating quantization-sensitive regions without needing a GPU.
 
 ## Project Flow
 

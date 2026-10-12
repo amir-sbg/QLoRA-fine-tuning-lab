@@ -43,6 +43,9 @@ def test_nf4_error_report_exposes_quality_and_storage() -> None:
     assert report["mse"] >= 0
     assert report["nf4_bytes"] < report["fp16_bytes"]
     assert report["compression_ratio_vs_fp16"] > 1
+    assert report["block_rmse_p95"] >= report["block_rmse_p50"]
+    assert report["max_block_rmse"] >= report["block_rmse_p95"]
+    assert 0 <= report["worst_block_index"] < 4
     assert report["relative_l2_error"] >= 0
     assert report["sqnr_db"] > 0
     assert 0 <= report["codebook_edge_fraction"] <= 1

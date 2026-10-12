@@ -122,6 +122,13 @@ def nf4_error_report(values: torch.Tensor, block_size: int = 64) -> dict[str, fl
     relative_l2 = float(torch.linalg.vector_norm(error) / torch.linalg.vector_norm(source).clamp_min(1e-12))
     fp16_bytes = values.numel() * 2
     nf4_bytes = estimate_4bit_storage_bytes(values.numel(), block_size=block_size)
+    block_rmse = torch.stack(
+        [
+            torch.sqrt(torch.mean(chunk**2))
+            for chunk in error.split(block_size)
+        ]
+    )
+    worst_block = int(torch.argmax(block_rmse).item())
     return {
         "num_values": int(values.numel()),
         "block_size": int(block_size),
@@ -135,6 +142,10 @@ def nf4_error_report(values: torch.Tensor, block_size: int = 64) -> dict[str, fl
         ),
         "mean_block_scale": float(quantized.scales.mean().item()),
         "max_block_scale": float(quantized.scales.max().item()),
+        "block_rmse_p50": float(torch.quantile(block_rmse, 0.50).item()),
+        "block_rmse_p95": float(torch.quantile(block_rmse, 0.95).item()),
+        "max_block_rmse": float(block_rmse[worst_block].item()),
+        "worst_block_index": worst_block,
         "fp16_bytes": int(fp16_bytes),
         "nf4_bytes": int(nf4_bytes),
         "compression_ratio_vs_fp16": round(fp16_bytes / nf4_bytes, 4),
