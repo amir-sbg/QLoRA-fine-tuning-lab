@@ -5,6 +5,7 @@ import pytest
 from qlora_lab.evaluate import (
     build_generation_kwargs,
     clean_generation_text,
+    distinct_ngram_rate,
     load_prompts,
     prompt_overlap_rate,
     repeated_bigram_rate,
@@ -75,14 +76,21 @@ def test_generation_results_can_be_saved_as_csv(tmp_path: Path) -> None:
     )
 
     assert output.read_text().splitlines() == [
-        "model_name,adapter_dir,prompt,generation,generation_words,empty_generation,prompt_overlap_rate,repeated_bigram_rate",
-        "tiny,adapter,Explain LoRA.,Low-rank adapters.,3,False,0.0,0.0",
+        "model_name,adapter_dir,prompt,generation,generation_words,empty_generation,prompt_overlap_rate,repeated_bigram_rate,distinct_2",
+        "tiny,adapter,Explain LoRA.,Low-rank adapters.,3,False,0.0,0.0,1.0",
     ]
 
 
 def test_repeated_bigram_rate_flags_looping_text() -> None:
     assert repeated_bigram_rate("adapter learns adapter learns adapter learns") > 0
     assert repeated_bigram_rate("adapter learns a compact residual update") == 0.0
+
+
+def test_distinct_bigram_rate_drops_for_repeated_phrases() -> None:
+    assert distinct_ngram_rate("one two three four", n=2) == 1.0
+    assert distinct_ngram_rate("one two one two", n=2) < 1.0
+    with pytest.raises(ValueError, match="positive"):
+        distinct_ngram_rate("text", n=0)
 
 
 def test_prompt_overlap_rate_tracks_echoed_instruction_terms() -> None:
@@ -112,3 +120,4 @@ def test_generation_review_summarizes_outputs() -> None:
     assert report["prompt_echoes"] == 1
     assert report["avg_prompt_overlap_rate"] > 0
     assert report["rows"][0]["unique_word_ratio"] == 1.0
+    assert report["avg_distinct_2"] == 0.5

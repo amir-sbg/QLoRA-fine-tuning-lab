@@ -68,6 +68,16 @@ def repeated_bigram_rate(text: str) -> float:
     return round(repeated / len(bigrams), 4)
 
 
+def distinct_ngram_rate(text: str, n: int = 2) -> float:
+    if n < 1:
+        raise ValueError("n must be positive")
+    words = normalized_words(text)
+    if len(words) < n:
+        return 0.0
+    ngrams = list(zip(*(words[offset:] for offset in range(n))))
+    return round(len(set(ngrams)) / len(ngrams), 4)
+
+
 def prompt_overlap_rate(prompt: str, generation: str) -> float:
     prompt_terms = set(normalized_words(prompt))
     generation_terms = set(normalized_words(generation))
@@ -111,6 +121,7 @@ def generation_review_row(result: dict) -> dict[str, float | int | bool]:
         ),
         "prompt_overlap_rate": prompt_overlap_rate(prompt, generation),
         "unique_word_ratio": round(unique_ratio, 4),
+        "distinct_2": distinct_ngram_rate(generation, 2),
         "repeated_bigram_rate": repeated_bigram_rate(generation),
     }
 
@@ -124,6 +135,7 @@ def summarize_generation_review(results: list[dict]) -> dict:
             "avg_prompt_words": 0.0,
             "avg_generation_words": 0.0,
             "avg_unique_word_ratio": 0.0,
+            "avg_distinct_2": 0.0,
             "avg_prompt_overlap_rate": 0.0,
             "prompt_echoes": 0,
             "max_repeated_bigram_rate": 0.0,
@@ -139,6 +151,7 @@ def summarize_generation_review(results: list[dict]) -> dict:
         "avg_prompt_words": avg("prompt_words"),
         "avg_generation_words": avg("generation_words"),
         "avg_unique_word_ratio": avg("unique_word_ratio"),
+        "avg_distinct_2": avg("distinct_2"),
         "avg_prompt_overlap_rate": avg("prompt_overlap_rate"),
         "prompt_echoes": sum(1 for row in rows if row["starts_with_prompt"]),
         "max_repeated_bigram_rate": max(
@@ -159,6 +172,7 @@ def save_generation_csv(results: list[dict], path: Path) -> None:
         "empty_generation",
         "prompt_overlap_rate",
         "repeated_bigram_rate",
+        "distinct_2",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -175,6 +189,7 @@ def save_generation_csv(results: list[dict], path: Path) -> None:
                     "empty_generation": review["empty_generation"],
                     "prompt_overlap_rate": review["prompt_overlap_rate"],
                     "repeated_bigram_rate": review["repeated_bigram_rate"],
+                    "distinct_2": review["distinct_2"],
                 }
             )
 
