@@ -109,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lora-r", type=int, default=QLoRAConfig.lora_r)
     parser.add_argument("--lora-alpha", type=int, default=QLoRAConfig.lora_alpha)
     parser.add_argument("--lora-dropout", type=float, default=QLoRAConfig.lora_dropout)
+    parser.add_argument("--use-rslora", action="store_true")
     parser.add_argument("--target-modules", nargs="+", default=list(QLoRAConfig.target_modules))
     parser.add_argument("--epochs", type=float, default=QLoRAConfig.epochs)
     parser.add_argument("--batch-size", type=int, default=QLoRAConfig.batch_size)

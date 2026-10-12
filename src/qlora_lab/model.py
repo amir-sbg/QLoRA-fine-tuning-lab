@@ -59,6 +59,7 @@ def load_qlora_model(config: QLoRAConfig):
         r=config.lora_r,
         lora_alpha=config.lora_alpha,
         lora_dropout=config.lora_dropout,
+        use_rslora=config.use_rslora,
         bias="none",
         task_type="CAUSAL_LM",
         target_modules=list(config.target_modules),

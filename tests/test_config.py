@@ -25,6 +25,13 @@ def test_config_rejects_bad_rank() -> None:
         QLoRAConfig(lora_r=0)
 
 
+def test_rslora_uses_rank_stabilized_scaling() -> None:
+    config = QLoRAConfig(lora_r=16, lora_alpha=32, use_rslora=True)
+
+    assert config.lora_scale == 8.0
+    assert config.to_dict()["use_rslora"] is True
+
+
 def test_config_rejects_invalid_gradient_clip() -> None:
     with pytest.raises(ValueError, match="max_grad_norm"):
         QLoRAConfig(max_grad_norm=0)

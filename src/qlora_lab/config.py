@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
+from math import sqrt
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ class QLoRAConfig:
     lora_r: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
+    use_rslora: bool = False
     target_modules: tuple[str, ...] = (
         "q_proj",
         "k_proj",
@@ -88,7 +90,8 @@ class QLoRAConfig:
 
     @property
     def lora_scale(self) -> float:
-        return self.lora_alpha / self.lora_r
+        denominator = sqrt(self.lora_r) if self.use_rslora else self.lora_r
+        return self.lora_alpha / denominator
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

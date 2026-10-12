@@ -156,7 +156,7 @@ def preflight_warnings(config: QLoRAConfig, runtime: dict[str, Any]) -> list[str
         warnings.append("bfloat16 was requested but the current CUDA runtime does not report bf16 support.")
     if config.max_seq_length > 2048 and config.batch_size > 1:
         warnings.append("Large sequence length with batch_size > 1 can make activation memory the bottleneck.")
-    if config.lora_alpha / config.lora_r > 4:
+    if config.lora_scale > 4:
         warnings.append("LoRA scale is high; watch early training loss for unstable updates.")
     if config.max_eval_samples is not None and config.max_eval_samples < 64:
         warnings.append("Evaluation cap is small; generation and loss estimates may move around a lot.")
@@ -191,6 +191,7 @@ def build_preflight_report(
             "lora_r": config.lora_r,
             "lora_alpha": config.lora_alpha,
             "lora_scale": config.lora_scale,
+            "scaling_rule": "alpha/sqrt(r)" if config.use_rslora else "alpha/r",
             "max_grad_norm": config.max_grad_norm,
             "target_modules": list(config.target_modules),
         },
@@ -249,6 +250,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-seq-length", type=int, default=QLoRAConfig.max_seq_length)
     parser.add_argument("--lora-r", type=int, default=QLoRAConfig.lora_r)
     parser.add_argument("--lora-alpha", type=int, default=QLoRAConfig.lora_alpha)
+    parser.add_argument("--use-rslora", action="store_true")
     parser.add_argument("--batch-size", type=int, default=QLoRAConfig.batch_size)
     parser.add_argument(
         "--gradient-accumulation-steps",
@@ -276,6 +278,7 @@ def main() -> None:
         max_seq_length=args.max_seq_length,
         lora_r=args.lora_r,
         lora_alpha=args.lora_alpha,
+        use_rslora=args.use_rslora,
         batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         epochs=args.epochs,
