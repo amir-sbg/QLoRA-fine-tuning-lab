@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from qlora_lab.adapter_math import lora_update_diagnostics
+from qlora_lab.adapter_math import lora_scaling, lora_update_diagnostics, merge_lora_weight
 
 
 def test_lora_update_diagnostics_match_diagonal_update() -> None:
@@ -32,3 +32,24 @@ def test_lora_update_diagnostics_validate_factor_shapes() -> None:
             alpha=4,
             base_weight=torch.zeros(4, 3),
         )
+
+
+def test_merge_matches_unmerged_linear_projection() -> None:
+    base = torch.tensor([[1.0, 0.0], [0.0, 2.0]])
+    lora_a = torch.tensor([[1.0, -1.0]])
+    lora_b = torch.tensor([[0.5], [1.0]])
+    inputs = torch.tensor([[2.0, 3.0]])
+
+    merged = merge_lora_weight(base, lora_a, lora_b, alpha=2.0)
+    unmerged_output = inputs @ base.T + lora_scaling(2.0, 1) * (inputs @ lora_a.T) @ lora_b.T
+
+    torch.testing.assert_close(inputs @ merged.T, unmerged_output)
+
+
+def test_rank_stabilized_diagnostics_use_sqrt_rank() -> None:
+    report = lora_update_diagnostics(
+        torch.eye(4), torch.eye(4), alpha=8, use_rslora=True
+    )
+
+    assert report["scale"] == 4.0
+    assert report["scaling_rule"] == "alpha/sqrt(r)"

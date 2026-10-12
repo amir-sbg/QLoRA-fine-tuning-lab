@@ -1,6 +1,34 @@
 from __future__ import annotations
 
+from math import sqrt
+
 import torch
+
+
+def lora_scaling(alpha: float, rank: int, use_rslora: bool = False) -> float:
+    if rank < 1 or alpha <= 0:
+        raise ValueError("rank and alpha must be positive")
+    return float(alpha / (sqrt(rank) if use_rslora else rank))
+
+
+def merge_lora_weight(
+    base_weight: torch.Tensor,
+    lora_a: torch.Tensor,
+    lora_b: torch.Tensor,
+    alpha: float,
+    use_rslora: bool = False,
+) -> torch.Tensor:
+    if base_weight.ndim != 2 or lora_a.ndim != 2 or lora_b.ndim != 2:
+        raise ValueError("base weight and LoRA factors must be 2-D matrices")
+    if lora_a.shape[0] != lora_b.shape[1]:
+        raise ValueError("LoRA factor rank dimensions must match")
+    if base_weight.shape != (lora_b.shape[0], lora_a.shape[1]):
+        raise ValueError("base_weight must match the LoRA update shape")
+    if not all(torch.isfinite(tensor).all() for tensor in (base_weight, lora_a, lora_b)):
+        raise ValueError("weights must contain only finite values")
+    scale = lora_scaling(alpha, lora_a.shape[0], use_rslora)
+    update = lora_b.to(torch.float32) @ lora_a.to(torch.float32)
+    return base_weight.to(torch.float32) + scale * update
 
 
 def lora_update_diagnostics(
@@ -8,6 +36,7 @@ def lora_update_diagnostics(
     lora_b: torch.Tensor,
     alpha: float,
     base_weight: torch.Tensor | None = None,
+    use_rslora: bool = False,
 ) -> dict[str, float | int]:
     if lora_a.ndim != 2 or lora_b.ndim != 2:
         raise ValueError("LoRA factors must be 2-D matrices")
@@ -19,7 +48,7 @@ def lora_update_diagnostics(
         raise ValueError("LoRA factors must contain only finite values")
 
     rank = lora_a.shape[0]
-    scale = alpha / rank
+    scale = lora_scaling(alpha, rank, use_rslora)
     update = scale * (lora_b.float() @ lora_a.float())
     frobenius_norm = float(torch.linalg.matrix_norm(update, ord="fro"))
     spectral_norm = float(torch.linalg.matrix_norm(update, ord=2))
@@ -28,6 +57,7 @@ def lora_update_diagnostics(
         "rank": int(rank),
         "alpha": float(alpha),
         "scale": float(scale),
+        "scaling_rule": "alpha/sqrt(r)" if use_rslora else "alpha/r",
         "a_frobenius_norm": float(torch.linalg.matrix_norm(lora_a.float(), ord="fro")),
         "b_frobenius_norm": float(torch.linalg.matrix_norm(lora_b.float(), ord="fro")),
         "update_frobenius_norm": frobenius_norm,

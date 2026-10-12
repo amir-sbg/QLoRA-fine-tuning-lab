@@ -1,4 +1,4 @@
-from .adapter_math import lora_update_diagnostics
+from .adapter_math import lora_scaling, lora_update_diagnostics, merge_lora_weight
 from .config import QLoRAConfig
 from .quantization import NF4Tensor, dequantize_nf4, nf4_codebook, quantize_nf4
 
@@ -7,6 +7,8 @@ __all__ = [
     "QLoRAConfig",
     "dequantize_nf4",
     "lora_update_diagnostics",
+    "lora_scaling",
+    "merge_lora_weight",
     "nf4_codebook",
     "quantize_nf4",
 ]
