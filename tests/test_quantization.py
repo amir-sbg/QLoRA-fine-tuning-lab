@@ -6,6 +6,7 @@ from qlora_lab.quantization import (
     dequantize_nf4,
     estimate_4bit_storage_bytes,
     nf4_error_report,
+    nf4_block_size_sweep,
     nf4_codebook,
     quantize_nf4,
 )
@@ -64,3 +65,18 @@ def test_nf4_dequantizer_validates_tensor_metadata() -> None:
         dequantize_nf4(replace(quantized, scales=quantized.scales[:1]))
     with pytest.raises(ValueError, match="between 0 and 15"):
         dequantize_nf4(replace(quantized, codes=torch.full_like(quantized.codes, 16)))
+
+
+def test_nf4_block_sweep_compares_error_storage_tradeoff() -> None:
+    values = torch.cat((torch.linspace(-0.1, 0.1, 32), torch.linspace(-4.0, 4.0, 32)))
+
+    report = nf4_block_size_sweep(values, block_sizes=(64, 16, 32))
+
+    assert [row["block_size"] for row in report["rows"]] == [16, 32, 64]
+    assert report["best_sqnr_block_size"] in {16, 32, 64}
+    assert report["rows"][0]["nf4_bytes"] >= report["rows"][-1]["nf4_bytes"]
+
+
+def test_nf4_block_sweep_rejects_duplicate_sizes() -> None:
+    with pytest.raises(ValueError, match="unique"):
+        nf4_block_size_sweep(torch.ones(8), block_sizes=(4, 4))

@@ -150,3 +150,22 @@ def nf4_error_report(values: torch.Tensor, block_size: int = 64) -> dict[str, fl
         "nf4_bytes": int(nf4_bytes),
         "compression_ratio_vs_fp16": round(fp16_bytes / nf4_bytes, 4),
     }
+
+
+def nf4_block_size_sweep(
+    values: torch.Tensor,
+    block_sizes: list[int] | tuple[int, ...] = (32, 64, 128),
+) -> dict[str, int | list[dict[str, float | int]]]:
+    if not block_sizes:
+        raise ValueError("block_sizes must not be empty")
+    if any(size < 1 for size in block_sizes):
+        raise ValueError("block_sizes must be positive")
+    if len(set(block_sizes)) != len(block_sizes):
+        raise ValueError("block_sizes must be unique")
+
+    rows = [nf4_error_report(values, block_size=size) for size in sorted(block_sizes)]
+    best = max(rows, key=lambda row: float(row["sqnr_db"]))
+    return {
+        "best_sqnr_block_size": int(best["block_size"]),
+        "rows": rows,
+    }
