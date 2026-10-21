@@ -115,6 +115,33 @@ def supervision_density_counts(
     return counts
 
 
+def token_budget_diagnostics(
+    prompt_tokens: int,
+    response_tokens: int,
+    max_seq_length: int,
+) -> dict[str, int | float | bool]:
+    if min(prompt_tokens, response_tokens) < 0:
+        raise ValueError("token counts must not be negative")
+    if max_seq_length < 1:
+        raise ValueError("max_seq_length must be positive")
+
+    kept_response = min(response_tokens, max_seq_length)
+    prompt_budget = max(max_seq_length - kept_response, 0)
+    kept_prompt = min(prompt_tokens, prompt_budget)
+    used_tokens = kept_prompt + kept_response
+    return {
+        "prompt_tokens": prompt_tokens,
+        "response_tokens": response_tokens,
+        "max_seq_length": max_seq_length,
+        "kept_prompt_tokens": kept_prompt,
+        "kept_response_tokens": kept_response,
+        "dropped_prompt_tokens": prompt_tokens - kept_prompt,
+        "dropped_response_tokens": response_tokens - kept_response,
+        "response_truncated": response_tokens > kept_response,
+        "supervised_token_ratio": kept_response / max(used_tokens, 1),
+    }
+
+
 def sequence_length_percentiles(lengths: list[int]) -> dict[str, int]:
     if not lengths:
         return {"p50": 0, "p90": 0, "p95": 0}

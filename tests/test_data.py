@@ -12,6 +12,7 @@ from qlora_lab.data import (
     supervision_density_bucket,
     supervision_density_counts,
     tokenize_example,
+    token_budget_diagnostics,
     tokenized_dataset_profile,
     validate_tokenized_profile,
 )
@@ -156,6 +157,28 @@ def test_tokenize_keeps_response_when_prompt_is_long() -> None:
     assert len(encoded["input_ids"]) == 8
     assert encoded["labels"][-1] != -100
     assert sum(label != -100 for label in encoded["labels"]) == 2
+
+
+def test_token_budget_prioritizes_response_supervision() -> None:
+    report = token_budget_diagnostics(
+        prompt_tokens=90,
+        response_tokens=30,
+        max_seq_length=100,
+    )
+
+    assert report["kept_prompt_tokens"] == 70
+    assert report["kept_response_tokens"] == 30
+    assert report["dropped_prompt_tokens"] == 20
+    assert report["response_truncated"] is False
+    assert report["supervised_token_ratio"] == pytest.approx(0.3)
+
+
+def test_token_budget_reports_response_truncation() -> None:
+    report = token_budget_diagnostics(20, 120, max_seq_length=64)
+
+    assert report["kept_prompt_tokens"] == 0
+    assert report["dropped_response_tokens"] == 56
+    assert report["response_truncated"] is True
 
 
 def test_supervised_collator_preserves_label_mask() -> None:

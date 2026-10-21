@@ -26,7 +26,7 @@ The training path uses the normal Hugging Face stack: `transformers`, `datasets`
 4. Load the base model in 4-bit NF4 with optional double quantization.
 5. Check the requested adapter target modules against the loaded model, then attach LoRA adapters to the matched projection layers.
 6. Train only the adapter weights and save the adapter checkpoint.
-7. Save a token and supervision-density profile so prompt masking and truncation are easy to inspect.
+7. Save a token and supervision-density profile, with token-budget diagnostics for prompt and response truncation.
 8. Run a preflight report before using GPU time.
 9. Run a rank sweep report to compare adapter size, scale, efficiency, and training memory.
 
