@@ -120,7 +120,7 @@ python -m qlora_lab.evaluate \
   --csv-output reports/generations.csv
 ```
 
-The evaluator writes generated samples to `reports/generations.json` with a compact review of empty outputs, response length, prompt overlap, lexical diversity, distinct bigrams, and repetition. Use `--csv-output` for a flat review table. Generation is deterministic by default; pass `--do-sample --temperature 0.8 --top-p 0.9` for qualitative sampling.
+The evaluator writes generated samples to `reports/generations.json` with a compact review of empty outputs, response length, prompt overlap, lexical diversity, distinct bigrams, repetition, and lexical precision/recall/F1 when a reference response is available. Use `--csv-output` for a flat review table. Generation is deterministic by default; pass `--do-sample --temperature 0.8 --top-p 0.9` for qualitative sampling.
 
 ## Repository Layout
 

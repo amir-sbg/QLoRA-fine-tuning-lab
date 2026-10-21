@@ -88,6 +88,26 @@ def prompt_overlap_rate(prompt: str, generation: str) -> float:
     return round(len(prompt_terms & generation_terms) / len(generation_terms), 4)
 
 
+def lexical_reference_metrics(reference: str, generation: str) -> dict[str, float | bool]:
+    reference_terms = normalized_words(reference)
+    generation_terms = normalized_words(generation)
+    reference_counts = {term: reference_terms.count(term) for term in set(reference_terms)}
+    generation_counts = {term: generation_terms.count(term) for term in set(generation_terms)}
+    overlap = sum(
+        min(count, generation_counts.get(term, 0))
+        for term, count in reference_counts.items()
+    )
+    precision = overlap / len(generation_terms) if generation_terms else 0.0
+    recall = overlap / len(reference_terms) if reference_terms else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return {
+        "reference_precision": round(precision, 4),
+        "reference_recall": round(recall, 4),
+        "reference_f1": round(f1, 4),
+        "reference_exact_match": generation.strip().casefold() == reference.strip().casefold(),
+    }
+
+
 def clean_generation_text(
     decoded_text: str,
     prompt: str,
@@ -111,7 +131,7 @@ def generation_review_row(result: dict) -> dict[str, float | int | bool]:
         if generation_words
         else 0.0
     )
-    return {
+    row = {
         "prompt_words": len(prompt_words),
         "generation_words": len(generation_words),
         "generation_chars": len(str(result.get("generation", ""))),
@@ -124,6 +144,9 @@ def generation_review_row(result: dict) -> dict[str, float | int | bool]:
         "distinct_2": distinct_ngram_rate(generation, 2),
         "repeated_bigram_rate": repeated_bigram_rate(generation),
     }
+    if "reference" in result:
+        row.update(lexical_reference_metrics(str(result["reference"]), generation))
+    return row
 
 
 def summarize_generation_review(results: list[dict]) -> dict:
@@ -139,12 +162,15 @@ def summarize_generation_review(results: list[dict]) -> dict:
             "avg_prompt_overlap_rate": 0.0,
             "prompt_echoes": 0,
             "max_repeated_bigram_rate": 0.0,
+            "reference_examples": 0,
+            "avg_reference_f1": 0.0,
             "rows": [],
         }
 
     def avg(key: str) -> float:
         return round(sum(float(row[key]) for row in rows) / len(rows), 3)
 
+    reference_rows = [row for row in rows if "reference_f1" in row]
     return {
         "examples": len(rows),
         "empty_generations": sum(1 for row in rows if row["empty_generation"]),
@@ -157,6 +183,12 @@ def summarize_generation_review(results: list[dict]) -> dict:
         "max_repeated_bigram_rate": max(
             float(row["repeated_bigram_rate"]) for row in rows
         ),
+        "reference_examples": len(reference_rows),
+        "avg_reference_f1": round(
+            sum(float(row["reference_f1"]) for row in reference_rows)
+            / max(len(reference_rows), 1),
+            3,
+        ),
         "rows": rows,
     }
 
@@ -168,11 +200,14 @@ def save_generation_csv(results: list[dict], path: Path) -> None:
         "adapter_dir",
         "prompt",
         "generation",
+        "reference",
         "generation_words",
         "empty_generation",
         "prompt_overlap_rate",
         "repeated_bigram_rate",
         "distinct_2",
+        "reference_f1",
+        "reference_exact_match",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -185,11 +220,14 @@ def save_generation_csv(results: list[dict], path: Path) -> None:
                     "adapter_dir": result.get("adapter_dir", ""),
                     "prompt": result.get("prompt", ""),
                     "generation": result.get("generation", ""),
+                    "reference": result.get("reference", ""),
                     "generation_words": review["generation_words"],
                     "empty_generation": review["empty_generation"],
                     "prompt_overlap_rate": review["prompt_overlap_rate"],
                     "repeated_bigram_rate": review["repeated_bigram_rate"],
                     "distinct_2": review["distinct_2"],
+                    "reference_f1": review.get("reference_f1", ""),
+                    "reference_exact_match": review.get("reference_exact_match", ""),
                 }
             )
 

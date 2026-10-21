@@ -7,6 +7,7 @@ from qlora_lab.evaluate import (
     clean_generation_text,
     distinct_ngram_rate,
     load_prompts,
+    lexical_reference_metrics,
     prompt_overlap_rate,
     repeated_bigram_rate,
     save_generation_csv,
@@ -76,8 +77,8 @@ def test_generation_results_can_be_saved_as_csv(tmp_path: Path) -> None:
     )
 
     assert output.read_text().splitlines() == [
-        "model_name,adapter_dir,prompt,generation,generation_words,empty_generation,prompt_overlap_rate,repeated_bigram_rate,distinct_2",
-        "tiny,adapter,Explain LoRA.,Low-rank adapters.,3,False,0.0,0.0,1.0",
+        "model_name,adapter_dir,prompt,generation,reference,generation_words,empty_generation,prompt_overlap_rate,repeated_bigram_rate,distinct_2,reference_f1,reference_exact_match",
+        "tiny,adapter,Explain LoRA.,Low-rank adapters.,,3,False,0.0,0.0,1.0,,",
     ]
 
 
@@ -96,6 +97,18 @@ def test_distinct_bigram_rate_drops_for_repeated_phrases() -> None:
 def test_prompt_overlap_rate_tracks_echoed_instruction_terms() -> None:
     assert prompt_overlap_rate("Explain LoRA adapters", "LoRA adapters help tuning") == 0.5
     assert prompt_overlap_rate("Explain LoRA", "") == 0.0
+
+
+def test_lexical_reference_metrics_handle_partial_answers() -> None:
+    report = lexical_reference_metrics(
+        "QLoRA trains low rank adapters",
+        "QLoRA trains adapters",
+    )
+
+    assert report["reference_precision"] == pytest.approx(1.0)
+    assert report["reference_recall"] == pytest.approx(0.6)
+    assert report["reference_f1"] == pytest.approx(0.75)
+    assert report["reference_exact_match"] is False
 
 
 def test_clean_generation_text_removes_prompt_and_next_header() -> None:
@@ -121,3 +134,18 @@ def test_generation_review_summarizes_outputs() -> None:
     assert report["avg_prompt_overlap_rate"] > 0
     assert report["rows"][0]["unique_word_ratio"] == 1.0
     assert report["avg_distinct_2"] == 0.5
+
+
+def test_generation_review_summarizes_reference_scores() -> None:
+    report = summarize_generation_review(
+        [
+            {
+                "prompt": "Explain LoRA",
+                "generation": "low rank adapters",
+                "reference": "low rank adapters",
+            }
+        ]
+    )
+
+    assert report["reference_examples"] == 1
+    assert report["avg_reference_f1"] == pytest.approx(1.0)
