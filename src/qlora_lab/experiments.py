@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 from dataclasses import dataclass
+from math import isfinite
 from pathlib import Path
 from typing import Iterable
 
@@ -171,6 +172,41 @@ def rank_sweep_csv_rows(report: dict) -> list[dict]:
         "base_4bit_memory_mb": assumptions["base_4bit_memory_mb"],
     }
     return [{**context, **row} for row in report["rank_sweep"]]
+
+
+def rank_quality_frontier(
+    report: dict,
+    quality_by_rank: dict[int, float],
+) -> list[dict[str, float | int]]:
+    """Return rank choices that improve quality as adapter memory increases."""
+
+    rows = report.get("rank_sweep", [])
+    ranks = {int(row["rank"]) for row in rows}
+    missing = sorted(ranks.difference(quality_by_rank))
+    if missing:
+        raise ValueError(f"missing quality scores for ranks: {missing}")
+    if any(not isfinite(float(quality_by_rank[rank])) for rank in ranks):
+        raise ValueError("quality scores must be finite")
+
+    ordered = sorted(rows, key=lambda row: float(row["adapter_training_memory_mb"]))
+    frontier = []
+    best_quality = float("-inf")
+    for row in ordered:
+        rank = int(row["rank"])
+        quality = float(quality_by_rank[rank])
+        if quality > best_quality:
+            frontier.append(
+                {
+                    "rank": rank,
+                    "quality": quality,
+                    "adapter_parameters": int(row["adapter_parameters"]),
+                    "adapter_training_memory_mb": float(
+                        row["adapter_training_memory_mb"]
+                    ),
+                }
+            )
+            best_quality = quality
+    return frontier
 
 
 def save_rank_sweep_csv(report: dict, path: Path) -> None:

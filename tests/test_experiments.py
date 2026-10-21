@@ -6,6 +6,7 @@ from qlora_lab.experiments import (
     decoder_block_shapes,
     lora_parameter_count,
     rank_sweep_report,
+    rank_quality_frontier,
     save_rank_sweep_csv,
 )
 
@@ -147,3 +148,22 @@ def test_rank_sweep_rejects_duplicate_or_invalid_ranks() -> None:
         rank_sweep_report([4, 4], 16, 32, 2, 10_000)
     with pytest.raises(ValueError, match="positive"):
         rank_sweep_report([0, 4], 16, 32, 2, 10_000)
+
+
+def test_rank_quality_frontier_removes_dominated_adapter_choice() -> None:
+    report = rank_sweep_report([4, 8, 16], 16, 32, 2, 10_000)
+
+    frontier = rank_quality_frontier(
+        report,
+        quality_by_rank={4: 0.62, 8: 0.60, 16: 0.68},
+    )
+
+    assert [row["rank"] for row in frontier] == [4, 16]
+    assert frontier[1]["adapter_training_memory_mb"] > frontier[0]["adapter_training_memory_mb"]
+
+
+def test_rank_quality_frontier_requires_every_score() -> None:
+    report = rank_sweep_report([4, 8], 16, 32, 2, 10_000)
+
+    with pytest.raises(ValueError, match="missing quality"):
+        rank_quality_frontier(report, quality_by_rank={4: 0.6})

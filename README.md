@@ -96,7 +96,7 @@ python -m qlora_lab.experiments \
   --csv-output reports/rank_sweep.csv
 ```
 
-This writes a JSON report with target-module-aware LoRA parameter counts, FP16 adapter memory, estimated adapter gradient and optimizer-state memory, parameter efficiency per training MB, estimated 4-bit backbone memory, whether each rank fits an optional adapter-training-memory budget, and the `alpha / r` scaling used by the adapter update. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
+This writes a JSON report with target-module-aware LoRA parameter counts, FP16 adapter memory, estimated adapter gradient and optimizer-state memory, parameter efficiency per training MB, estimated 4-bit backbone memory, whether each rank fits an optional adapter-training-memory budget, and the `alpha / r` scaling used by the adapter update. A quality-versus-memory Pareto helper removes dominated rank choices once evaluation scores are available. The optional CSV export is useful when comparing several rank choices in a notebook or spreadsheet.
 
 ## Notebooks
 
