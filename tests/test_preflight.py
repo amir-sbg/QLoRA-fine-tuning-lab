@@ -6,6 +6,7 @@ from qlora_lab.preflight import (
     effective_batch_size,
     estimate_token_budget,
     estimate_hidden_state_memory_mb,
+    estimate_adapter_optimizer_memory_mb,
     estimate_update_steps,
     learning_rate_preview,
 )
@@ -55,6 +56,15 @@ def test_hidden_state_memory_estimate_reflects_checkpointing() -> None:
     assert estimate["checkpointed_hidden_state_mb"] < estimate["uncheckpointed_hidden_state_mb"]
 
 
+def test_adapter_optimizer_memory_includes_gradients_and_moments() -> None:
+    estimate = estimate_adapter_optimizer_memory_mb(1_048_576)
+
+    assert estimate["adapter_parameters_mb"] == pytest.approx(2.0)
+    assert estimate["adapter_gradients_mb"] == pytest.approx(2.0)
+    assert estimate["optimizer_states_mb"] == pytest.approx(8.0)
+    assert estimate["adapter_training_state_mb"] == pytest.approx(12.0)
+
+
 def test_preflight_report_includes_memory_estimate() -> None:
     report = build_preflight_report(
         QLoRAConfig(lora_r=8, lora_alpha=16),
@@ -62,6 +72,7 @@ def test_preflight_report_includes_memory_estimate() -> None:
         base_parameters=10_000,
         hidden_size=128,
         layers=4,
+        trainable_parameters=4096,
     )
 
     assert report["qlora"]["lora_scale"] == 2.0
@@ -72,6 +83,7 @@ def test_preflight_report_includes_memory_estimate() -> None:
     assert report["lr_preview"][0]["step"] == 1
     assert report["memory_estimate"]["base_parameters"] == 10_000
     assert report["activation_memory_estimate"]["layers"] == 4
+    assert report["adapter_training_memory_estimate"]["trainable_parameters"] == 4096
     assert any("Token exposure is low" in warning for warning in report["warnings"])
 
 

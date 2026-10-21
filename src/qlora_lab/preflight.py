@@ -83,6 +83,28 @@ def estimate_hidden_state_memory_mb(
     }
 
 
+def estimate_adapter_optimizer_memory_mb(
+    trainable_parameters: int,
+    parameter_bytes: int = 2,
+    gradient_bytes: int = 2,
+    optimizer_state_bytes: int = 8,
+) -> dict[str, float | int]:
+    if trainable_parameters < 1:
+        raise ValueError("trainable_parameters must be positive")
+    if min(parameter_bytes, gradient_bytes, optimizer_state_bytes) < 0:
+        raise ValueError("memory byte widths must not be negative")
+    parameter_mb = trainable_parameters * parameter_bytes / 1_048_576
+    gradient_mb = trainable_parameters * gradient_bytes / 1_048_576
+    optimizer_mb = trainable_parameters * optimizer_state_bytes / 1_048_576
+    return {
+        "trainable_parameters": trainable_parameters,
+        "adapter_parameters_mb": round(parameter_mb, 3),
+        "adapter_gradients_mb": round(gradient_mb, 3),
+        "optimizer_states_mb": round(optimizer_mb, 3),
+        "adapter_training_state_mb": round(parameter_mb + gradient_mb + optimizer_mb, 3),
+    }
+
+
 def learning_rate_preview(
     total_steps: int,
     warmup_steps: int,
@@ -170,6 +192,7 @@ def build_preflight_report(
     world_size: int = 1,
     hidden_size: int | None = None,
     layers: int | None = None,
+    trainable_parameters: int | None = None,
 ) -> dict[str, Any]:
     if (hidden_size is None) != (layers is None):
         raise ValueError("hidden_size and layers must be provided together")
@@ -240,6 +263,10 @@ def build_preflight_report(
             hidden_size,
             layers,
         )
+    if trainable_parameters is not None:
+        report["adapter_training_memory_estimate"] = estimate_adapter_optimizer_memory_mb(
+            trainable_parameters
+        )
     return report
 
 
@@ -266,6 +293,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--world-size", type=int, default=1)
     parser.add_argument("--hidden-size", type=int)
     parser.add_argument("--layers", type=int)
+    parser.add_argument("--trainable-parameters", type=int)
     parser.add_argument("--output", type=Path, default=Path("reports/preflight.json"))
     return parser
 
@@ -293,6 +321,7 @@ def main() -> None:
         world_size=args.world_size,
         hidden_size=args.hidden_size,
         layers=args.layers,
+        trainable_parameters=args.trainable_parameters,
     )
     save_json(report, args.output)
     print(f"wrote {args.output}")
