@@ -74,3 +74,34 @@ def lora_update_diagnostics(
         report["base_frobenius_norm"] = base_norm
         report["relative_update_norm"] = frobenius_norm / max(base_norm, 1e-12)
     return report
+
+
+def lora_spectrum_report(
+    lora_a: torch.Tensor,
+    lora_b: torch.Tensor,
+    alpha: float,
+    use_rslora: bool = False,
+) -> dict[str, float | int]:
+    if lora_a.ndim != 2 or lora_b.ndim != 2:
+        raise ValueError("LoRA factors must be 2-D matrices")
+    if lora_a.shape[0] != lora_b.shape[1]:
+        raise ValueError("LoRA factor rank dimensions must match")
+    if not torch.isfinite(lora_a).all() or not torch.isfinite(lora_b).all():
+        raise ValueError("LoRA factors must contain only finite values")
+
+    update = lora_scaling(alpha, lora_a.shape[0], use_rslora) * (
+        lora_b.float() @ lora_a.float()
+    )
+    singular_values = torch.linalg.svdvals(update)
+    energy = singular_values.square()
+    fractions = energy / energy.sum().clamp_min(1e-24)
+    nonzero = fractions > 0
+    entropy = -torch.sum(fractions[nonzero] * torch.log(fractions[nonzero]))
+    cumulative = torch.cumsum(fractions, dim=0)
+    rank_90 = int(torch.searchsorted(cumulative, 0.90).item() + 1)
+    return {
+        "top_singular_value": float(singular_values[0]),
+        "top1_energy_fraction": float(fractions[0]),
+        "rank_90_percent_energy": rank_90,
+        "entropy_effective_rank": float(torch.exp(entropy)),
+    }

@@ -1,7 +1,12 @@
 import pytest
 import torch
 
-from qlora_lab.adapter_math import lora_scaling, lora_update_diagnostics, merge_lora_weight
+from qlora_lab.adapter_math import (
+    lora_scaling,
+    lora_spectrum_report,
+    lora_update_diagnostics,
+    merge_lora_weight,
+)
 
 
 def test_lora_update_diagnostics_match_diagonal_update() -> None:
@@ -53,3 +58,15 @@ def test_rank_stabilized_diagnostics_use_sqrt_rank() -> None:
 
     assert report["scale"] == 4.0
     assert report["scaling_rule"] == "alpha/sqrt(r)"
+
+
+def test_lora_spectrum_reports_update_energy_concentration() -> None:
+    report = lora_spectrum_report(
+        torch.eye(2),
+        torch.diag(torch.tensor([3.0, 1.0])),
+        alpha=2,
+    )
+
+    assert report["top1_energy_fraction"] == pytest.approx(0.9)
+    assert report["rank_90_percent_energy"] == 1
+    assert 1.0 < report["entropy_effective_rank"] < 2.0
