@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import sqrt
+from math import acos, degrees, sqrt
 
 import torch
 
@@ -71,8 +71,23 @@ def lora_update_diagnostics(
         if not torch.isfinite(base_weight).all():
             raise ValueError("base_weight must contain only finite values")
         base_norm = float(torch.linalg.matrix_norm(base_weight.float(), ord="fro"))
+        flat_base = base_weight.float().reshape(-1)
+        flat_update = update.reshape(-1)
+        cosine = float(
+            torch.dot(flat_base, flat_update)
+            / (torch.linalg.vector_norm(flat_base) * torch.linalg.vector_norm(flat_update)).clamp_min(1e-12)
+        )
+        cosine = max(-1.0, min(1.0, cosine))
         report["base_frobenius_norm"] = base_norm
         report["relative_update_norm"] = frobenius_norm / max(base_norm, 1e-12)
+        report["base_update_cosine"] = cosine
+        report["base_update_angle_degrees"] = degrees(acos(cosine))
+        active = (flat_base != 0) & (flat_update != 0)
+        report["base_update_sign_agreement"] = (
+            float((torch.sign(flat_base[active]) == torch.sign(flat_update[active])).float().mean())
+            if torch.any(active)
+            else 0.0
+        )
     return report
 
 

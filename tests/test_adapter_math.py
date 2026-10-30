@@ -25,6 +25,9 @@ def test_lora_update_diagnostics_match_diagonal_update() -> None:
     assert report["update_stable_rank"] == pytest.approx(2.0)
     assert report["update_numerical_rank"] == 2
     assert report["relative_update_norm"] == pytest.approx(2.0)
+    assert report["base_update_cosine"] == pytest.approx(1.0)
+    assert report["base_update_angle_degrees"] == pytest.approx(0.0)
+    assert report["base_update_sign_agreement"] == pytest.approx(1.0)
 
 
 def test_lora_update_diagnostics_validate_factor_shapes() -> None:
@@ -70,3 +73,16 @@ def test_lora_spectrum_reports_update_energy_concentration() -> None:
     assert report["top1_energy_fraction"] == pytest.approx(0.9)
     assert report["rank_90_percent_energy"] == 1
     assert 1.0 < report["entropy_effective_rank"] < 2.0
+
+
+def test_lora_diagnostics_expose_opposing_update_direction() -> None:
+    report = lora_update_diagnostics(
+        torch.eye(2),
+        -torch.eye(2),
+        alpha=2,
+        base_weight=torch.eye(2),
+    )
+
+    assert report["base_update_cosine"] == pytest.approx(-1.0)
+    assert report["base_update_angle_degrees"] == pytest.approx(180.0)
+    assert report["base_update_sign_agreement"] == pytest.approx(0.0)
