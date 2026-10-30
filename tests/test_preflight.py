@@ -7,6 +7,7 @@ from qlora_lab.preflight import (
     estimate_token_budget,
     estimate_hidden_state_memory_mb,
     estimate_adapter_optimizer_memory_mb,
+    estimate_training_memory_budget_mb,
     estimate_update_steps,
     learning_rate_preview,
 )
@@ -84,6 +85,7 @@ def test_preflight_report_includes_memory_estimate() -> None:
     assert report["memory_estimate"]["base_parameters"] == 10_000
     assert report["activation_memory_estimate"]["layers"] == 4
     assert report["adapter_training_memory_estimate"]["trainable_parameters"] == 4096
+    assert report["training_memory_budget"]["estimated_total_mb"] > 0
     assert any("Token exposure is low" in warning for warning in report["warnings"])
 
 
@@ -109,3 +111,20 @@ def test_learning_rate_preview_tracks_warmup_and_decay() -> None:
 def test_preflight_rejects_bad_world_size() -> None:
     with pytest.raises(ValueError, match="world_size"):
         effective_batch_size(QLoRAConfig(), world_size=0)
+
+
+def test_training_memory_budget_keeps_components_visible() -> None:
+    budget = estimate_training_memory_budget_mb(
+        base_parameters=1_000_000,
+        trainable_parameters=100_000,
+        checkpointed_activation_mb=32.0,
+        workspace_fraction=0.2,
+    )
+
+    subtotal = (
+        budget["quantized_base_mb"]
+        + budget["adapter_training_state_mb"]
+        + budget["checkpointed_activation_mb"]
+    )
+    assert budget["workspace_reserve_mb"] == pytest.approx(subtotal * 0.2, abs=0.002)
+    assert budget["estimated_total_mb"] > subtotal

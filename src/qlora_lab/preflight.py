@@ -105,6 +105,36 @@ def estimate_adapter_optimizer_memory_mb(
     }
 
 
+def estimate_training_memory_budget_mb(
+    base_parameters: int,
+    trainable_parameters: int,
+    checkpointed_activation_mb: float,
+    workspace_fraction: float = 0.15,
+) -> dict[str, float | int]:
+    if base_parameters < 1 or trainable_parameters < 1:
+        raise ValueError("parameter counts must be positive")
+    if checkpointed_activation_mb < 0:
+        raise ValueError("activation memory must not be negative")
+    if workspace_fraction < 0:
+        raise ValueError("workspace_fraction must not be negative")
+
+    base_mb = estimate_4bit_storage_bytes(base_parameters) / 1_048_576
+    adapter_mb = float(
+        estimate_adapter_optimizer_memory_mb(trainable_parameters)["adapter_training_state_mb"]
+    )
+    subtotal = base_mb + adapter_mb + checkpointed_activation_mb
+    workspace_mb = subtotal * workspace_fraction
+    return {
+        "base_parameters": base_parameters,
+        "trainable_parameters": trainable_parameters,
+        "quantized_base_mb": round(base_mb, 3),
+        "adapter_training_state_mb": round(adapter_mb, 3),
+        "checkpointed_activation_mb": round(checkpointed_activation_mb, 3),
+        "workspace_reserve_mb": round(workspace_mb, 3),
+        "estimated_total_mb": round(subtotal + workspace_mb, 3),
+    }
+
+
 def learning_rate_preview(
     total_steps: int,
     warmup_steps: int,
@@ -266,6 +296,16 @@ def build_preflight_report(
     if trainable_parameters is not None:
         report["adapter_training_memory_estimate"] = estimate_adapter_optimizer_memory_mb(
             trainable_parameters
+        )
+    if (
+        base_parameters is not None
+        and trainable_parameters is not None
+        and "activation_memory_estimate" in report
+    ):
+        report["training_memory_budget"] = estimate_training_memory_budget_mb(
+            base_parameters,
+            trainable_parameters,
+            float(report["activation_memory_estimate"]["checkpointed_hidden_state_mb"]),
         )
     return report
 
