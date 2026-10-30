@@ -5,6 +5,7 @@ from dataclasses import replace
 from qlora_lab.quantization import (
     dequantize_nf4,
     estimate_4bit_storage_bytes,
+    nf4_error_by_magnitude,
     nf4_error_report,
     nf4_block_size_sweep,
     nf4_codebook,
@@ -80,3 +81,18 @@ def test_nf4_block_sweep_compares_error_storage_tradeoff() -> None:
 def test_nf4_block_sweep_rejects_duplicate_sizes() -> None:
     with pytest.raises(ValueError, match="unique"):
         nf4_block_size_sweep(torch.ones(8), block_sizes=(4, 4))
+
+
+def test_nf4_error_can_be_inspected_by_weight_magnitude() -> None:
+    values = torch.linspace(-4.0, 4.0, steps=64)
+
+    rows = nf4_error_by_magnitude(values, block_size=16, bins=4)
+
+    assert [row["count"] for row in rows] == [16, 16, 16, 16]
+    assert rows[0]["max_abs_weight"] <= rows[-1]["min_abs_weight"]
+    assert all(row["rmse"] >= 0 for row in rows)
+
+
+def test_nf4_error_magnitude_bins_validate_sample_count() -> None:
+    with pytest.raises(ValueError, match="cannot exceed"):
+        nf4_error_by_magnitude(torch.ones(2), bins=3)

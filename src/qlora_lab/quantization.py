@@ -169,3 +169,39 @@ def nf4_block_size_sweep(
         "best_sqnr_block_size": int(best["block_size"]),
         "rows": rows,
     }
+
+
+def nf4_error_by_magnitude(
+    values: torch.Tensor,
+    block_size: int = 64,
+    bins: int = 4,
+) -> list[dict[str, float | int]]:
+    """Break reconstruction error down by equally sized weight-magnitude groups."""
+    if bins < 1:
+        raise ValueError("bins must be positive")
+    if values.numel() < bins:
+        raise ValueError("bins cannot exceed the number of values")
+
+    source = values.detach().to(torch.float32).reshape(-1)
+    restored = dequantize_nf4(quantize_nf4(values, block_size)).reshape(-1)
+    error = restored - source
+    order = torch.argsort(source.abs())
+    rows = []
+    for index, indices in enumerate(torch.tensor_split(order, bins)):
+        group_source = source[indices]
+        group_error = error[indices]
+        source_norm = torch.linalg.vector_norm(group_source).clamp_min(1e-12)
+        rows.append(
+            {
+                "magnitude_bin": index,
+                "count": int(indices.numel()),
+                "min_abs_weight": float(group_source.abs().min()),
+                "max_abs_weight": float(group_source.abs().max()),
+                "mae": float(group_error.abs().mean()),
+                "rmse": float(torch.sqrt(torch.mean(group_error.square()))),
+                "relative_l2_error": float(
+                    torch.linalg.vector_norm(group_error) / source_norm
+                ),
+            }
+        )
+    return rows
