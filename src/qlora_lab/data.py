@@ -153,6 +153,32 @@ def sequence_length_percentiles(lengths: list[int]) -> dict[str, int]:
     }
 
 
+def supervision_balance_report(supervised_lengths: list[int]) -> dict[str, float | int]:
+    """Report whether a small set of long responses dominates the training loss."""
+
+    if not supervised_lengths or any(length < 0 for length in supervised_lengths):
+        raise ValueError("supervised lengths must be non-empty and non-negative")
+    ordered = sorted(supervised_lengths)
+    total = sum(ordered)
+    if total == 0:
+        gini = 0.0
+        top_share = 0.0
+    else:
+        weighted = sum((index + 1) * value for index, value in enumerate(ordered))
+        gini = (2.0 * weighted) / (len(ordered) * total) - (len(ordered) + 1) / len(ordered)
+        top_count = max(1, (len(ordered) + 9) // 10)
+        top_share = sum(ordered[-top_count:]) / total
+    mean = total / len(ordered)
+    variance = sum((value - mean) ** 2 for value in ordered) / len(ordered)
+    return {
+        "examples": len(ordered),
+        "total_supervised_tokens": total,
+        "supervised_token_gini": float(gini),
+        "top_10_percent_token_share": float(top_share),
+        "supervised_token_cv": float(variance**0.5 / mean) if mean > 0 else 0.0,
+    }
+
+
 @dataclass
 class SupervisedDataCollator:
     tokenizer: Any
@@ -229,6 +255,7 @@ def tokenized_dataset_profile(dataset: Any) -> dict[str, Any]:
             input_lengths,
             supervised_lengths,
         ),
+        "supervision_balance": supervision_balance_report(supervised_lengths),
     }
 
 

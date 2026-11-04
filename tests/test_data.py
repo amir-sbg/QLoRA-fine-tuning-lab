@@ -11,6 +11,7 @@ from qlora_lab.data import (
     split_and_limit_dataset,
     supervision_density_bucket,
     supervision_density_counts,
+    supervision_balance_report,
     tokenize_example,
     token_budget_diagnostics,
     tokenized_dataset_profile,
@@ -240,6 +241,16 @@ def test_dataset_profile_reports_density_buckets() -> None:
         [32, 100, 100, 100],
         [0, 2, 12, 45],
     )
+    assert profile["supervision_balance"]["total_supervised_tokens"] == 59
+
+
+def test_supervision_balance_detects_loss_token_concentration() -> None:
+    balanced = supervision_balance_report([10, 10, 10, 10])
+    concentrated = supervision_balance_report([1, 1, 1, 37])
+
+    assert balanced["supervised_token_gini"] == pytest.approx(0.0)
+    assert concentrated["supervised_token_gini"] > balanced["supervised_token_gini"]
+    assert concentrated["top_10_percent_token_share"] == pytest.approx(37 / 40)
 
 
 def test_supervision_density_counts_requires_aligned_lengths() -> None:
