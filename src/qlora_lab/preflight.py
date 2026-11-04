@@ -56,6 +56,31 @@ def estimate_token_budget(
     }
 
 
+def accumulation_profile(
+    train_examples: int,
+    config: QLoRAConfig,
+    world_size: int = 1,
+) -> dict[str, float | int]:
+    """Describe optimizer-step exposure and the partially filled final update."""
+
+    if train_examples < 1:
+        raise ValueError("train_examples must be positive")
+    microbatch_examples = config.batch_size * world_size
+    full_update_examples = effective_batch_size(config, world_size)
+    microbatches = math.ceil(train_examples / microbatch_examples)
+    updates = math.ceil(microbatches / config.gradient_accumulation_steps)
+    final_examples = train_examples - full_update_examples * (updates - 1)
+    return {
+        "microbatch_examples": microbatch_examples,
+        "microbatches_per_epoch": microbatches,
+        "optimizer_updates_per_epoch": updates,
+        "full_update_examples": full_update_examples,
+        "full_update_tokens": full_update_examples * config.max_seq_length,
+        "final_update_examples": final_examples,
+        "final_update_fill_fraction": final_examples / full_update_examples,
+    }
+
+
 def estimate_hidden_state_memory_mb(
     batch_size: int,
     sequence_length: int,
@@ -265,6 +290,7 @@ def build_preflight_report(
     if train_examples is not None:
         report["steps"] = estimate_update_steps(train_examples, config, world_size)
         report["token_budget"] = estimate_token_budget(train_examples, config, world_size)
+        report["accumulation"] = accumulation_profile(train_examples, config, world_size)
         report["lr_preview"] = learning_rate_preview(
             report["steps"]["estimated_total_steps"],
             report["steps"]["estimated_warmup_steps"],

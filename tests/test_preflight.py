@@ -2,6 +2,7 @@ import pytest
 
 from qlora_lab.config import QLoRAConfig
 from qlora_lab.preflight import (
+    accumulation_profile,
     build_preflight_report,
     effective_batch_size,
     estimate_token_budget,
@@ -43,6 +44,21 @@ def test_token_budget_uses_effective_batch_and_context_length() -> None:
     assert budget["tokens_per_update"] == 2048
     assert budget["max_seen_tokens"] == 98 * 128
     assert budget["warmup_seen_tokens"] == 2048
+
+
+def test_accumulation_profile_exposes_partial_final_update() -> None:
+    config = QLoRAConfig(
+        batch_size=2,
+        gradient_accumulation_steps=4,
+        max_seq_length=128,
+    )
+
+    profile = accumulation_profile(65, config, world_size=2)
+
+    assert profile["full_update_examples"] == 16
+    assert profile["optimizer_updates_per_epoch"] == 5
+    assert profile["final_update_examples"] == 1
+    assert profile["final_update_fill_fraction"] == pytest.approx(1 / 16)
 
 
 def test_hidden_state_memory_estimate_reflects_checkpointing() -> None:
