@@ -224,3 +224,33 @@ def nf4_code_utilization(values: torch.Tensor, block_size: int = 64) -> dict[str
         "most_used_fraction": float(probabilities.max()),
         "code_fractions": [float(value) for value in probabilities],
     }
+
+
+def nf4_outlier_sensitivity(
+    values: torch.Tensor,
+    block_size: int = 64,
+    clip_quantile: float = 0.99,
+) -> dict[str, float | int]:
+    """Measure how much rare large weights determine blockwise NF4 error."""
+
+    if not 0.5 <= clip_quantile < 1.0:
+        raise ValueError("clip_quantile must be in [0.5, 1.0)")
+    source = values.detach().to(torch.float32)
+    if source.numel() < 2 or not torch.isfinite(source).all():
+        raise ValueError("values must contain at least two finite numbers")
+    threshold = torch.quantile(source.abs().reshape(-1), clip_quantile)
+    clipped = source.clamp(min=-threshold, max=threshold)
+    original = nf4_error_report(source, block_size)
+    robust = nf4_error_report(clipped, block_size)
+    clipped_fraction = float((source.abs() > threshold).float().mean())
+    return {
+        "num_values": int(source.numel()),
+        "clip_quantile": float(clip_quantile),
+        "clip_threshold": float(threshold),
+        "clipped_fraction": clipped_fraction,
+        "original_sqnr_db": float(original["sqnr_db"]),
+        "clipped_sqnr_db": float(robust["sqnr_db"]),
+        "sqnr_gain_db": float(robust["sqnr_db"]) - float(original["sqnr_db"]),
+        "max_scale_reduction": float(original["max_block_scale"])
+        - float(robust["max_block_scale"]),
+    }

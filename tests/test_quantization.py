@@ -8,6 +8,7 @@ from qlora_lab.quantization import (
     nf4_error_by_magnitude,
     nf4_code_utilization,
     nf4_error_report,
+    nf4_outlier_sensitivity,
     nf4_block_size_sweep,
     nf4_codebook,
     quantize_nf4,
@@ -107,3 +108,18 @@ def test_nf4_code_utilization_detects_codebook_collapse() -> None:
     assert constant["entropy_effective_codes"] == pytest.approx(1.0)
     assert spread["active_codes"] > constant["active_codes"]
     assert sum(spread["code_fractions"]) == pytest.approx(1.0)
+
+
+def test_nf4_outlier_sensitivity_exposes_scale_domination() -> None:
+    values = torch.cat([torch.linspace(-1.0, 1.0, 127), torch.tensor([40.0])])
+
+    report = nf4_outlier_sensitivity(values, block_size=64, clip_quantile=0.95)
+
+    assert report["clipped_fraction"] > 0.0
+    assert report["max_scale_reduction"] > 0.0
+    assert report["clipped_sqnr_db"] > report["original_sqnr_db"]
+
+
+def test_nf4_outlier_sensitivity_validates_quantile() -> None:
+    with pytest.raises(ValueError, match="clip_quantile"):
+        nf4_outlier_sensitivity(torch.ones(8), clip_quantile=1.0)
