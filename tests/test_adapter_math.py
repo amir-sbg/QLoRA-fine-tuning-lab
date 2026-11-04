@@ -73,6 +73,22 @@ def test_lora_spectrum_reports_update_energy_concentration() -> None:
     assert report["top1_energy_fraction"] == pytest.approx(0.9)
     assert report["rank_90_percent_energy"] == 1
     assert 1.0 < report["entropy_effective_rank"] < 2.0
+    assert report["energy_participation_rank"] == pytest.approx(1 / 0.82)
+    assert report["active_rank"] == 2
+    assert report["active_rank_fraction"] == 1.0
+    assert report["active_condition_number"] == pytest.approx(3.0)
+
+
+def test_lora_spectrum_detects_unused_configured_rank() -> None:
+    report = lora_spectrum_report(
+        torch.eye(3),
+        torch.diag(torch.tensor([2.0, 0.0, 0.0])),
+        alpha=3,
+    )
+
+    assert report["configured_rank"] == 3
+    assert report["active_rank"] == 1
+    assert report["active_rank_fraction"] == pytest.approx(1 / 3)
 
 
 def test_lora_diagnostics_expose_opposing_update_direction() -> None:

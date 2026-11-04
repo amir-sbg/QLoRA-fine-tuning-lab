@@ -114,9 +114,20 @@ def lora_spectrum_report(
     entropy = -torch.sum(fractions[nonzero] * torch.log(fractions[nonzero]))
     cumulative = torch.cumsum(fractions, dim=0)
     rank_90 = int(torch.searchsorted(cumulative, 0.90).item() + 1)
+    tolerance = singular_values[0] * max(update.shape) * torch.finfo(singular_values.dtype).eps
+    active_singular_values = singular_values[singular_values > tolerance]
+    active_rank = int(active_singular_values.numel())
+    participation_ratio = float(1.0 / torch.sum(fractions.square()).clamp_min(1e-24))
     return {
         "top_singular_value": float(singular_values[0]),
         "top1_energy_fraction": float(fractions[0]),
         "rank_90_percent_energy": rank_90,
         "entropy_effective_rank": float(torch.exp(entropy)),
+        "energy_participation_rank": participation_ratio,
+        "active_rank": active_rank,
+        "configured_rank": int(lora_a.shape[0]),
+        "active_rank_fraction": active_rank / lora_a.shape[0],
+        "active_condition_number": float(
+            active_singular_values[0] / active_singular_values[-1]
+        ),
     }
