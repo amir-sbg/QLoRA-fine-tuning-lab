@@ -6,6 +6,7 @@ from qlora_lab.quantization import (
     dequantize_nf4,
     estimate_4bit_storage_bytes,
     nf4_error_by_magnitude,
+    nf4_code_utilization,
     nf4_error_report,
     nf4_block_size_sweep,
     nf4_codebook,
@@ -96,3 +97,13 @@ def test_nf4_error_can_be_inspected_by_weight_magnitude() -> None:
 def test_nf4_error_magnitude_bins_validate_sample_count() -> None:
     with pytest.raises(ValueError, match="cannot exceed"):
         nf4_error_by_magnitude(torch.ones(2), bins=3)
+
+
+def test_nf4_code_utilization_detects_codebook_collapse() -> None:
+    constant = nf4_code_utilization(torch.ones(64), block_size=16)
+    spread = nf4_code_utilization(torch.linspace(-1.0, 1.0, 256), block_size=32)
+
+    assert constant["active_codes"] == 1
+    assert constant["entropy_effective_codes"] == pytest.approx(1.0)
+    assert spread["active_codes"] > constant["active_codes"]
+    assert sum(spread["code_fractions"]) == pytest.approx(1.0)

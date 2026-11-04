@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil, log10
+from math import ceil, exp, log10
 
 import torch
 
@@ -205,3 +205,22 @@ def nf4_error_by_magnitude(
             }
         )
     return rows
+
+
+def nf4_code_utilization(values: torch.Tensor, block_size: int = 64) -> dict[str, object]:
+    """Summarize whether NF4 codes are used broadly or collapse to a few levels."""
+
+    quantized = quantize_nf4(values, block_size=block_size)
+    counts = torch.bincount(quantized.codes.long(), minlength=16).to(torch.float64)
+    probabilities = counts / counts.sum()
+    active = probabilities > 0
+    entropy = float(-(probabilities[active] * torch.log(probabilities[active])).sum())
+    return {
+        "active_codes": int(active.sum()),
+        "unused_codes": int((~active).sum()),
+        "code_entropy_nats": entropy,
+        "entropy_effective_codes": exp(entropy),
+        "most_used_code": int(torch.argmax(counts)),
+        "most_used_fraction": float(probabilities.max()),
+        "code_fractions": [float(value) for value in probabilities],
+    }
