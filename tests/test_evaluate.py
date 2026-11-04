@@ -9,6 +9,7 @@ from qlora_lab.evaluate import (
     load_prompts,
     lexical_reference_metrics,
     prompt_overlap_rate,
+    rouge_l_f1,
     repeated_bigram_rate,
     save_generation_csv,
     summarize_generation_review,
@@ -111,6 +112,14 @@ def test_lexical_reference_metrics_handle_partial_answers() -> None:
     assert report["reference_exact_match"] is False
 
 
+def test_rouge_l_rewards_ordered_reference_coverage() -> None:
+    ordered = rouge_l_f1("low rank adapters preserve memory", "low rank adapters")
+    scrambled = rouge_l_f1("low rank adapters preserve memory", "adapters rank low")
+
+    assert ordered == pytest.approx(0.75)
+    assert scrambled < ordered
+
+
 def test_clean_generation_text_removes_prompt_and_next_header() -> None:
     prompt = "### Instruction:\nExplain QLoRA.\n\n### Response:\n"
     decoded = prompt + "QLoRA trains compact adapters.\n### Instruction:\nNext task"
@@ -149,3 +158,4 @@ def test_generation_review_summarizes_reference_scores() -> None:
 
     assert report["reference_examples"] == 1
     assert report["avg_reference_f1"] == pytest.approx(1.0)
+    assert report["avg_reference_rouge_l_f1"] == pytest.approx(1.0)

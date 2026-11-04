@@ -88,6 +88,28 @@ def prompt_overlap_rate(prompt: str, generation: str) -> float:
     return round(len(prompt_terms & generation_terms) / len(generation_terms), 4)
 
 
+def rouge_l_f1(reference: str, generation: str) -> float:
+    """Compute token-level ROUGE-L F1 without an external evaluation package."""
+
+    reference_terms = normalized_words(reference)
+    generation_terms = normalized_words(generation)
+    if not reference_terms or not generation_terms:
+        return 0.0
+    previous = [0] * (len(generation_terms) + 1)
+    for reference_term in reference_terms:
+        current = [0]
+        for index, generation_term in enumerate(generation_terms, start=1):
+            if reference_term == generation_term:
+                current.append(previous[index - 1] + 1)
+            else:
+                current.append(max(previous[index], current[-1]))
+        previous = current
+    lcs = previous[-1]
+    precision = lcs / len(generation_terms)
+    recall = lcs / len(reference_terms)
+    return round(2 * precision * recall / (precision + recall), 4)
+
+
 def lexical_reference_metrics(reference: str, generation: str) -> dict[str, float | bool]:
     reference_terms = normalized_words(reference)
     generation_terms = normalized_words(generation)
@@ -104,6 +126,7 @@ def lexical_reference_metrics(reference: str, generation: str) -> dict[str, floa
         "reference_precision": round(precision, 4),
         "reference_recall": round(recall, 4),
         "reference_f1": round(f1, 4),
+        "reference_rouge_l_f1": rouge_l_f1(reference, generation),
         "reference_exact_match": generation.strip().casefold() == reference.strip().casefold(),
     }
 
@@ -164,6 +187,7 @@ def summarize_generation_review(results: list[dict]) -> dict:
             "max_repeated_bigram_rate": 0.0,
             "reference_examples": 0,
             "avg_reference_f1": 0.0,
+            "avg_reference_rouge_l_f1": 0.0,
             "rows": [],
         }
 
@@ -186,6 +210,11 @@ def summarize_generation_review(results: list[dict]) -> dict:
         "reference_examples": len(reference_rows),
         "avg_reference_f1": round(
             sum(float(row["reference_f1"]) for row in reference_rows)
+            / max(len(reference_rows), 1),
+            3,
+        ),
+        "avg_reference_rouge_l_f1": round(
+            sum(float(row["reference_rouge_l_f1"]) for row in reference_rows)
             / max(len(reference_rows), 1),
             3,
         ),
